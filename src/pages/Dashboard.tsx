@@ -23,8 +23,11 @@ import {
   Rocket,
   Bot,
   Loader2,
+  MessageCircle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { AgentChat } from "@/components/AgentChat";
+import { AgentAnalytics } from "@/components/AgentAnalytics";
 
 const CATEGORIES = [
   "Full Runtime",
@@ -75,6 +78,7 @@ const Dashboard = () => {
 
   // Track which agent is being acted upon
   const [actingOn, setActingOn] = useState<string | null>(null);
+  const [chatAgent, setChatAgent] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     if (!authenticated) {
@@ -211,6 +215,15 @@ const Dashboard = () => {
       </nav>
 
       <div className="container mx-auto px-6 py-10">
+        {/* Analytics */}
+        {agents.length > 0 && (
+          <AgentAnalytics
+            agentIds={agents.map((a) => a.id)}
+            agentStatuses={Object.fromEntries(agents.map((a) => [a.id, a.status]))}
+            agentCreatedAts={Object.fromEntries(agents.map((a) => [a.id, a.created_at]))}
+          />
+        )}
+
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -396,6 +409,16 @@ const Dashboard = () => {
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setChatAgent({ id: agent.id, name: agent.name })}
+                    disabled={agent.status !== "running"}
+                    className="border-primary/30 text-primary hover:bg-primary/10"
+                  >
+                    <MessageCircle className="h-3.5 w-3.5 mr-1" />
+                    Chat
+                  </Button>
                   {agent.status === "stopped" ? (
                     <Button
                       size="sm"
@@ -446,6 +469,17 @@ const Dashboard = () => {
           </div>
         )}
       </div>
+
+      {/* Chat overlay */}
+      <AnimatePresence>
+        {chatAgent && (
+          <AgentChat
+            agentId={chatAgent.id}
+            agentName={chatAgent.name}
+            onClose={() => setChatAgent(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };
