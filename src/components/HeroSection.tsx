@@ -2,21 +2,25 @@ import { motion } from "framer-motion";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import TerminalBlock from "./TerminalBlock";
-import { usePrivy } from "@privy-io/react-auth";
 
 const HeroSection = () => {
-  const { login } = usePrivy();
+  let login = () => {};
+  try {
+    const { usePrivy } = require("@privy-io/react-auth");
+    const privy = usePrivy();
+    login = privy.login;
+  } catch {
+    // Privy not configured
+  }
 
   return (
     <section className="relative min-h-screen flex flex-col items-center justify-center pt-16 overflow-hidden">
-      {/* Orbs */}
       <div className="absolute top-20 -left-40 w-[500px] h-[500px] orb-cyan animate-float rounded-full" />
       <div className="absolute bottom-20 -right-40 w-[600px] h-[600px] orb-purple animate-float-slow rounded-full" />
       <div className="absolute inset-0 noise-overlay" />
 
       <div className="relative z-10 container mx-auto px-6">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
-          {/* Left: Text */}
           <div className="text-center lg:text-left">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -48,7 +52,6 @@ const HeroSection = () => {
               A browser-based IDE for AI agents. Full runtime, no setup, no local install. Build once, deploy to 23+ channels.
             </motion.p>
 
-            {/* CLI preview */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -74,7 +77,6 @@ const HeroSection = () => {
               </Button>
             </motion.div>
 
-            {/* Providers */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -92,7 +94,6 @@ const HeroSection = () => {
             </motion.div>
           </div>
 
-          {/* Right: Terminal — visible on all screens */}
           <motion.div
             initial={{ opacity: 0, x: 30 }}
             animate={{ opacity: 1, x: 0 }}
