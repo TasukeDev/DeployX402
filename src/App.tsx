@@ -9,7 +9,7 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-const PRIVY_APP_ID = import.meta.env.VITE_PRIVY_APP_ID || "";
+const PRIVY_APP_ID = import.meta.env.VITE_PRIVY_APP_ID || "cmm5azso800ie0cl4ina2swlj";
 const isPrivyConfigured = PRIVY_APP_ID.length > 5 && PRIVY_APP_ID.startsWith("cl");
 
 const InnerApp = () => (
