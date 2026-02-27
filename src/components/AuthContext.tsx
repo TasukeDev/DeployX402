@@ -1,10 +1,13 @@
-import { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import type { User } from "@supabase/supabase-js";
 
 interface AuthContextType {
   login: () => void;
   logout: () => void;
   authenticated: boolean;
   userDisplay: string | null;
+  user: User | null;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -12,35 +15,44 @@ const AuthContext = createContext<AuthContextType>({
   logout: () => {},
   authenticated: false,
   userDisplay: null,
+  user: null,
 });
 
 export const useAuth = () => useContext(AuthContext);
 
-interface Props {
-  children: ReactNode;
-}
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
-/**
- * Wraps Privy auth when configured, otherwise provides a no-op context.
- * The PrivyAuthProvider is used in App.tsx only when Privy is enabled.
- */
-export const FallbackAuthProvider = ({ children }: Props) => {
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const login = () => {
+    window.location.href = "/auth";
+  };
+
+  const logout = async () => {
+    await supabase.auth.signOut();
+  };
+
+  const authenticated = !!user;
+  const userDisplay = user?.email ?? (authenticated ? "Signed in" : null);
+
+  if (loading) return null;
+
   return (
-    <AuthContext.Provider value={{ login: () => {}, logout: () => {}, authenticated: false, userDisplay: null }}>
-      {children}
-    </AuthContext.Provider>
-  );
-};
-
-export const PrivyAuthBridge = ({ children }: Props) => {
-  // This component must be rendered inside PrivyProvider
-  const { usePrivy } = require("@privy-io/react-auth");
-  const { login, logout, authenticated, user } = usePrivy();
-
-  const userDisplay = user?.email?.address || user?.wallet?.address?.slice(0, 8) + "..." || (authenticated ? "Connected" : null);
-
-  return (
-    <AuthContext.Provider value={{ login, logout, authenticated, userDisplay }}>
+    <AuthContext.Provider value={{ login, logout, authenticated, userDisplay, user }}>
       {children}
     </AuthContext.Provider>
   );
