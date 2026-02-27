@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/components/AuthContext";
 
 const perks = [
   "Unlimited requests",
@@ -14,6 +15,7 @@ const perks = [
 ];
 
 const PricingSection = () => {
+  const { login } = useAuth();
   return (
     <section id="pricing" className="py-32 relative">
       <div className="container mx-auto px-6">
@@ -56,7 +58,7 @@ const PricingSection = () => {
             ))}
           </ul>
 
-          <Button className="w-full bg-primary text-primary-foreground hover:bg-primary/90 glow-primary font-semibold">
+          <Button onClick={login} className="w-full bg-primary text-primary-foreground hover:bg-primary/90 glow-primary font-semibold">
             Get Started Free
           </Button>
 

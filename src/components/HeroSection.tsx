@@ -66,7 +66,7 @@ const HeroSection = () => {
               <Button size="lg" onClick={login} className="bg-primary text-primary-foreground hover:bg-primary/90 glow-primary px-8 font-semibold">
                 Start Building Free <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
-              <Button size="lg" variant="outline" className="border-border hover:bg-secondary px-8">
+              <Button size="lg" variant="outline" className="border-border hover:bg-secondary px-8" onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}>
                 Explore Features
               </Button>
             </motion.div>
