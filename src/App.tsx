@@ -3,17 +3,16 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { PrivyProvider } from "@privy-io/react-auth";
+import { FallbackAuthProvider } from "@/components/AuthContext";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
 const PRIVY_APP_ID = import.meta.env.VITE_PRIVY_APP_ID || "";
+const isPrivyConfigured = PRIVY_APP_ID.length > 5 && PRIVY_APP_ID.startsWith("cl");
 
-const isPrivyConfigured = PRIVY_APP_ID.startsWith("cl");
-
-const AppContent = () => (
+const InnerApp = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
@@ -29,23 +28,30 @@ const AppContent = () => (
 );
 
 const App = () => {
-  if (!isPrivyConfigured) {
-    return <AppContent />;
+  if (isPrivyConfigured) {
+    // Dynamic import to avoid loading Privy when not configured
+    const { PrivyProvider } = require("@privy-io/react-auth");
+    const { PrivyAuthBridge } = require("@/components/AuthContext");
+
+    return (
+      <PrivyProvider
+        appId={PRIVY_APP_ID}
+        config={{
+          appearance: { theme: "dark", accentColor: "#2dd4bf" },
+          loginMethods: ["email", "wallet", "google"],
+        }}
+      >
+        <PrivyAuthBridge>
+          <InnerApp />
+        </PrivyAuthBridge>
+      </PrivyProvider>
+    );
   }
 
   return (
-    <PrivyProvider
-      appId={PRIVY_APP_ID}
-      config={{
-        appearance: {
-          theme: "dark",
-          accentColor: "#2dd4bf",
-        },
-        loginMethods: ["email", "wallet", "google"],
-      }}
-    >
-      <AppContent />
-    </PrivyProvider>
+    <FallbackAuthProvider>
+      <InnerApp />
+    </FallbackAuthProvider>
   );
 };
 

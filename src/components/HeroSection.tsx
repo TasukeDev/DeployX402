@@ -2,16 +2,10 @@ import { motion } from "framer-motion";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import TerminalBlock from "./TerminalBlock";
+import { useAuth } from "@/components/AuthContext";
 
 const HeroSection = () => {
-  let login = () => {};
-  try {
-    const { usePrivy } = require("@privy-io/react-auth");
-    const privy = usePrivy();
-    login = privy.login;
-  } catch {
-    // Privy not configured
-  }
+  const { login } = useAuth();
 
   return (
     <section className="relative min-h-screen flex flex-col items-center justify-center pt-16 overflow-hidden">
@@ -83,9 +77,7 @@ const HeroSection = () => {
               transition={{ delay: 0.7 }}
               className="mt-12"
             >
-              <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground mb-3">
-                Works with every major provider
-              </p>
+              <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground mb-3">Works with every major provider</p>
               <div className="flex flex-wrap gap-4 text-sm text-muted-foreground justify-center lg:justify-start">
                 {["OpenAI", "Anthropic", "Google", "Mistral", "DeepSeek", "Ollama"].map((n) => (
                   <span key={n} className="hover:text-foreground transition-colors">{n}</span>
