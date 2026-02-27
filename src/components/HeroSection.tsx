@@ -3,9 +3,19 @@ import { ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import TerminalBlock from "./TerminalBlock";
 import { useAuth } from "@/components/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 const HeroSection = () => {
-  const { login } = useAuth();
+  const { login, authenticated } = useAuth();
+  const { toast } = useToast();
+
+  const handleCTA = () => {
+    if (authenticated) {
+      toast({ title: "You're already signed in!", description: "You're all set to start building." });
+    } else {
+      login();
+    }
+  };
 
   return (
     <section className="relative min-h-screen flex flex-col items-center justify-center pt-16 overflow-hidden">
@@ -63,7 +73,7 @@ const HeroSection = () => {
               transition={{ delay: 0.45 }}
               className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start"
             >
-              <Button size="lg" onClick={login} className="bg-primary text-primary-foreground hover:bg-primary/90 glow-primary px-8 font-semibold">
+              <Button size="lg" onClick={handleCTA} className="bg-primary text-primary-foreground hover:bg-primary/90 glow-primary px-8 font-semibold">
                 Start Building Free <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
               <Button size="lg" variant="outline" className="border-border hover:bg-secondary px-8" onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}>
