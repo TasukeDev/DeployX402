@@ -3,15 +3,15 @@ import { ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import TerminalBlock from "./TerminalBlock";
 import { useAuth } from "@/components/AuthContext";
-import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 
 const HeroSection = () => {
   const { login, authenticated } = useAuth();
-  const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleCTA = () => {
     if (authenticated) {
-      toast({ title: "You're already signed in!", description: "You're all set to start building." });
+      navigate("/dashboard");
     } else {
       login();
     }
