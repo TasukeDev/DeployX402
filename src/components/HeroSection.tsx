@@ -1,89 +1,104 @@
 import { motion } from "framer-motion";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import TerminalBlock from "./TerminalBlock";
 
 const HeroSection = () => {
   return (
     <section className="relative min-h-screen flex flex-col items-center justify-center pt-16 overflow-hidden">
-      {/* Grid background */}
-      <div className="absolute inset-0 grid-pattern opacity-30" />
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/50 to-background" />
+      {/* Orbs */}
+      <div className="absolute top-20 -left-40 w-[500px] h-[500px] orb-cyan animate-float rounded-full" />
+      <div className="absolute bottom-20 -right-40 w-[600px] h-[600px] orb-purple animate-float-slow rounded-full" />
+      <div className="absolute inset-0 noise-overlay" />
 
-      <div className="relative z-10 container mx-auto px-6 text-center">
-        <motion.h1
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7 }}
-          className="text-5xl md:text-7xl lg:text-8xl font-bold leading-[0.95] tracking-tight mb-6"
-        >
-          Deploy Anywhere.
-          <br />
-          <span className="text-gradient-accent">Launch Everywhere.</span>
-        </motion.h1>
+      <div className="relative z-10 container mx-auto px-6">
+        <div className="grid lg:grid-cols-2 gap-12 items-center">
+          {/* Left: Text */}
+          <div className="text-left">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-primary/20 bg-primary/5 text-xs text-primary font-medium mb-8"
+            >
+              <Sparkles className="h-3 w-3" />
+              Now in Open Beta — Free for everyone
+            </motion.div>
 
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.15 }}
-          className="text-lg md:text-xl text-muted-foreground max-w-xl mx-auto mb-4"
-        >
-          Build, deploy, and manage AI agents from your browser.
-          <br />
-          Full runtime. No setup. No local install.
-        </motion.p>
+            <motion.h1
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, delay: 0.1 }}
+              className="text-5xl md:text-6xl lg:text-7xl font-extrabold leading-[1.05] tracking-tight mb-6"
+            >
+              Deploy Anywhere.
+              <br />
+              <span className="text-gradient-hero">Launch Everywhere.</span>
+            </motion.h1>
 
-        {/* Terminal command line */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          className="flex items-center justify-center gap-2 font-mono text-sm text-muted-foreground mb-8"
-        >
-          <span className="text-primary">$</span>
-          <span>launch --deploy</span>
-          <span className="text-primary">everywhere</span>
-          <span className="animate-blink text-primary">_</span>
-        </motion.div>
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="text-lg text-muted-foreground max-w-lg mb-4"
+            >
+              A browser-based IDE for AI agents. Full runtime, no setup, no local install. Build once, deploy to 23+ channels.
+            </motion.p>
 
-        <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16"
-        >
-          <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 glow-primary px-8 text-base">
-            Start Building Free <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
-          <Button size="lg" variant="outline" className="border-border text-foreground hover:bg-secondary px-8 text-base">
-            Explore Features <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
-        </motion.div>
+            {/* CLI preview */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.35 }}
+              className="font-mono text-sm text-muted-foreground mb-8 flex items-center gap-2"
+            >
+              <span className="text-primary">$</span>
+              <span>launch deploy --everywhere</span>
+              <span className="animate-blink text-primary">▋</span>
+            </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.55, duration: 0.8 }}
-        >
-          <TerminalBlock />
-        </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.45 }}
+              className="flex flex-col sm:flex-row gap-3"
+            >
+              <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 glow-primary px-8 font-semibold">
+                Start Building Free <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+              <Button size="lg" variant="outline" className="border-border hover:bg-secondary px-8">
+                Explore Features
+              </Button>
+            </motion.div>
 
-        {/* Provider logos */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.8 }}
-          className="mt-16"
-        >
-          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-4">
-            Works with every major AI provider
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-muted-foreground">
-            {["OpenAI", "Anthropic", "Google", "Mistral", "DeepSeek", "Ollama"].map((name) => (
-              <span key={name} className="hover:text-foreground transition-colors cursor-default">{name}</span>
-            ))}
+            {/* Providers */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.7 }}
+              className="mt-12"
+            >
+              <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground mb-3">
+                Works with every major provider
+              </p>
+              <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                {["OpenAI", "Anthropic", "Google", "Mistral", "DeepSeek", "Ollama"].map((n) => (
+                  <span key={n} className="hover:text-foreground transition-colors">{n}</span>
+                ))}
+              </div>
+            </motion.div>
           </div>
-        </motion.div>
+
+          {/* Right: Terminal */}
+          <motion.div
+            initial={{ opacity: 0, x: 30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.8, delay: 0.3 }}
+            className="hidden lg:block"
+          >
+            <TerminalBlock />
+          </motion.div>
+        </div>
       </div>
     </section>
   );
