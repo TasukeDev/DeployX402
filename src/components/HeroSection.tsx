@@ -2,8 +2,11 @@ import { motion } from "framer-motion";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import TerminalBlock from "./TerminalBlock";
+import { usePrivy } from "@privy-io/react-auth";
 
 const HeroSection = () => {
+  const { login } = usePrivy();
+
   return (
     <section className="relative min-h-screen flex flex-col items-center justify-center pt-16 overflow-hidden">
       {/* Orbs */}
@@ -14,7 +17,7 @@ const HeroSection = () => {
       <div className="relative z-10 container mx-auto px-6">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           {/* Left: Text */}
-          <div className="text-left">
+          <div className="text-center lg:text-left">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -29,7 +32,7 @@ const HeroSection = () => {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.1 }}
-              className="text-5xl md:text-6xl lg:text-7xl font-extrabold leading-[1.05] tracking-tight mb-6"
+              className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold leading-[1.05] tracking-tight mb-6"
             >
               Deploy Anywhere.
               <br />
@@ -40,7 +43,7 @@ const HeroSection = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="text-lg text-muted-foreground max-w-lg mb-4"
+              className="text-base sm:text-lg text-muted-foreground max-w-lg mx-auto lg:mx-0 mb-4"
             >
               A browser-based IDE for AI agents. Full runtime, no setup, no local install. Build once, deploy to 23+ channels.
             </motion.p>
@@ -50,7 +53,7 @@ const HeroSection = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.35 }}
-              className="font-mono text-sm text-muted-foreground mb-8 flex items-center gap-2"
+              className="font-mono text-sm text-muted-foreground mb-8 flex items-center gap-2 justify-center lg:justify-start"
             >
               <span className="text-primary">$</span>
               <span>launch deploy --everywhere</span>
@@ -61,9 +64,9 @@ const HeroSection = () => {
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.45 }}
-              className="flex flex-col sm:flex-row gap-3"
+              className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start"
             >
-              <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 glow-primary px-8 font-semibold">
+              <Button size="lg" onClick={login} className="bg-primary text-primary-foreground hover:bg-primary/90 glow-primary px-8 font-semibold">
                 Start Building Free <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
               <Button size="lg" variant="outline" className="border-border hover:bg-secondary px-8">
@@ -81,7 +84,7 @@ const HeroSection = () => {
               <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground mb-3">
                 Works with every major provider
               </p>
-              <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+              <div className="flex flex-wrap gap-4 text-sm text-muted-foreground justify-center lg:justify-start">
                 {["OpenAI", "Anthropic", "Google", "Mistral", "DeepSeek", "Ollama"].map((n) => (
                   <span key={n} className="hover:text-foreground transition-colors">{n}</span>
                 ))}
@@ -89,12 +92,12 @@ const HeroSection = () => {
             </motion.div>
           </div>
 
-          {/* Right: Terminal */}
+          {/* Right: Terminal — visible on all screens */}
           <motion.div
             initial={{ opacity: 0, x: 30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8, delay: 0.3 }}
-            className="hidden lg:block"
+            className="w-full"
           >
             <TerminalBlock />
           </motion.div>
