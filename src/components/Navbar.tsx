@@ -1,34 +1,11 @@
 import { useState } from "react";
 import { Zap, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-let usePrivy: () => { login: () => void; logout: () => void; authenticated: boolean; user: any };
-try {
-  const mod = await import("@privy-io/react-auth");
-  usePrivy = mod.usePrivy;
-} catch {
-  // fallback
-}
+import { useAuth } from "@/components/AuthContext";
 
 const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
-
-  let authenticated = false;
-  let login = () => {};
-  let logout = () => {};
-  let user: any = null;
-
-  try {
-    if (usePrivy) {
-      const privy = usePrivy();
-      authenticated = privy.authenticated;
-      login = privy.login;
-      logout = privy.logout;
-      user = privy.user;
-    }
-  } catch {
-    // Privy not configured
-  }
+  const { login, logout, authenticated, userDisplay } = useAuth();
 
   const links = [
     { href: "#features", label: "Features" },
@@ -47,7 +24,6 @@ const Navbar = () => {
           <span className="text-lg font-bold text-foreground tracking-tight">LaunchPad</span>
         </div>
 
-        {/* Desktop nav */}
         <div className="hidden md:flex items-center gap-8">
           {links.map((l) => (
             <a key={l.href} href={l.href} className="text-sm text-muted-foreground hover:text-primary transition-colors">
@@ -59,9 +35,7 @@ const Navbar = () => {
         <div className="hidden md:block">
           {authenticated ? (
             <div className="flex items-center gap-3">
-              <span className="text-xs text-muted-foreground truncate max-w-[140px]">
-                {user?.email?.address || user?.wallet?.address?.slice(0, 8) + "..." || "Connected"}
-              </span>
+              <span className="text-xs text-muted-foreground truncate max-w-[140px]">{userDisplay}</span>
               <Button size="sm" variant="outline" onClick={logout} className="border-border text-muted-foreground hover:text-foreground hover:bg-secondary">
                 Sign Out
               </Button>
@@ -73,7 +47,6 @@ const Navbar = () => {
           )}
         </div>
 
-        {/* Mobile hamburger */}
         <button
           className="md:hidden flex items-center justify-center h-10 w-10 rounded-lg text-foreground hover:bg-secondary transition-colors"
           onClick={() => setMobileOpen(!mobileOpen)}
@@ -83,34 +56,22 @@ const Navbar = () => {
         </button>
       </div>
 
-      {/* Mobile menu */}
       {mobileOpen && (
         <div className="md:hidden border-t border-border/50 bg-background/95 backdrop-blur-2xl">
           <div className="container mx-auto px-6 py-4 space-y-1">
             {links.map((l) => (
-              <a
-                key={l.href}
-                href={l.href}
-                onClick={() => setMobileOpen(false)}
-                className="block py-3 text-sm text-muted-foreground hover:text-primary transition-colors"
-              >
+              <a key={l.href} href={l.href} onClick={() => setMobileOpen(false)} className="block py-3 text-sm text-muted-foreground hover:text-primary transition-colors">
                 {l.label}
               </a>
             ))}
             <div className="pt-3 border-t border-border/50">
               {authenticated ? (
                 <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground truncate">
-                    {user?.email?.address || user?.wallet?.address?.slice(0, 8) + "..." || "Connected"}
-                  </p>
-                  <Button size="sm" variant="outline" onClick={logout} className="w-full border-border text-muted-foreground">
-                    Sign Out
-                  </Button>
+                  <p className="text-xs text-muted-foreground truncate">{userDisplay}</p>
+                  <Button size="sm" variant="outline" onClick={logout} className="w-full border-border text-muted-foreground">Sign Out</Button>
                 </div>
               ) : (
-                <Button size="sm" onClick={login} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
-                  Sign In
-                </Button>
+                <Button size="sm" onClick={login} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">Sign In</Button>
               )}
             </div>
           </div>
