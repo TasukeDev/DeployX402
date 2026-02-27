@@ -1,11 +1,34 @@
 import { useState } from "react";
 import { Zap, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { usePrivy } from "@privy-io/react-auth";
+
+let usePrivy: () => { login: () => void; logout: () => void; authenticated: boolean; user: any };
+try {
+  const mod = await import("@privy-io/react-auth");
+  usePrivy = mod.usePrivy;
+} catch {
+  // fallback
+}
 
 const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { login, logout, authenticated, user } = usePrivy();
+
+  let authenticated = false;
+  let login = () => {};
+  let logout = () => {};
+  let user: any = null;
+
+  try {
+    if (usePrivy) {
+      const privy = usePrivy();
+      authenticated = privy.authenticated;
+      login = privy.login;
+      logout = privy.logout;
+      user = privy.user;
+    }
+  } catch {
+    // Privy not configured
+  }
 
   const links = [
     { href: "#features", label: "Features" },
