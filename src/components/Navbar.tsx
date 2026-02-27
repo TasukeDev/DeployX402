@@ -14,21 +14,26 @@ const Navbar = () => {
     { href: "#faq", label: "FAQ" },
   ];
 
+  const scrollTo = (href: string) => {
+    const id = href.replace('#', '');
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/60 backdrop-blur-2xl">
       <div className="container mx-auto flex h-16 items-center justify-between px-6">
-        <div className="flex items-center gap-2.5">
+        <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="flex items-center gap-2.5 cursor-pointer">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 border border-primary/20">
             <Zap className="h-4 w-4 text-primary" />
           </div>
           <span className="text-lg font-bold text-foreground tracking-tight">LaunchPad</span>
-        </div>
+        </button>
 
         <div className="hidden md:flex items-center gap-8">
           {links.map((l) => (
-            <a key={l.href} href={l.href} className="text-sm text-muted-foreground hover:text-primary transition-colors">
+            <button key={l.href} onClick={() => scrollTo(l.href)} className="text-sm text-muted-foreground hover:text-primary transition-colors">
               {l.label}
-            </a>
+            </button>
           ))}
         </div>
 
@@ -60,9 +65,9 @@ const Navbar = () => {
         <div className="md:hidden border-t border-border/50 bg-background/95 backdrop-blur-2xl">
           <div className="container mx-auto px-6 py-4 space-y-1">
             {links.map((l) => (
-              <a key={l.href} href={l.href} onClick={() => setMobileOpen(false)} className="block py-3 text-sm text-muted-foreground hover:text-primary transition-colors">
+              <button key={l.href} onClick={() => { scrollTo(l.href); setMobileOpen(false); }} className="block w-full text-left py-3 text-sm text-muted-foreground hover:text-primary transition-colors">
                 {l.label}
-              </a>
+              </button>
             ))}
             <div className="pt-3 border-t border-border/50">
               {authenticated ? (
