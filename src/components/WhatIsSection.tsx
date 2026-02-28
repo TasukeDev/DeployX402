@@ -5,9 +5,10 @@ const WhatIsSection = () => {
     <section className="py-28 px-6">
       <div className="max-w-3xl mx-auto">
         <motion.div
-          initial={{ opacity: 0, y: 15 }}
+          initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
         >
           <h2 className="text-2xl sm:text-3xl font-medium tracking-tight mb-6">
             What is <span className="text-primary">SolAgent</span>?
