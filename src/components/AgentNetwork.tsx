@@ -1,18 +1,10 @@
-import { motion, useMotionValue } from "framer-motion";
-import { Bot, User } from "lucide-react";
+import { motion } from "framer-motion";
+import { Bot } from "lucide-react";
 import { useState, useRef, useCallback } from "react";
 
-// Generate a deterministic avatar color from agent id
-const AVATAR_COLORS = [
-  "from-primary/40 to-primary/10",
-  "from-blue-500/30 to-blue-400/10",
-  "from-amber-500/30 to-amber-400/10",
-  "from-rose-500/30 to-rose-400/10",
-  "from-violet-500/30 to-violet-400/10",
-  "from-cyan-500/30 to-cyan-400/10",
-  "from-emerald-500/30 to-emerald-400/10",
-  "from-orange-500/30 to-orange-400/10",
-];
+// DiceBear avatar URL generator — each agent gets a unique illustrated profile
+const getAvatarUrl = (seed: string) =>
+  `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${encodeURIComponent(seed)}&radius=50&backgroundColor=171717`;
 
 interface AgentNetworkProps {
   agents: { id: string; name: string; status: string }[];
@@ -93,22 +85,25 @@ const AgentNetwork = ({ agents }: AgentNetworkProps) => {
           })}
         </svg>
 
-        {/* Center node */}
+        {/* Center node — larger profile */}
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           transition={{ type: "spring", stiffness: 200, delay: 0.1 }}
-          className="absolute z-20 flex items-center justify-center"
-          style={{ left: centerX - 24, top: centerY - 24 }}
+          className="absolute z-20"
+          style={{ left: centerX - 28, top: centerY - 28 }}
         >
-          <div className="h-12 w-12 rounded-full border-2 border-primary/40 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center shadow-[0_0_20px_-4px_hsl(var(--primary)/0.3)]">
-            <Bot className="h-5 w-5 text-primary" />
+          <div className="h-14 w-14 rounded-full border-2 border-primary/50 overflow-hidden shadow-[0_0_24px_-4px_hsl(var(--primary)/0.35)]">
+            <img
+              src={getAvatarUrl("solagent-center")}
+              alt="Center agent"
+              className="h-full w-full object-cover"
+            />
           </div>
         </motion.div>
 
         {/* Draggable agent nodes */}
         {initialNodes.map((node, i) => {
-          const colorClass = AVATAR_COLORS[i % AVATAR_COLORS.length];
           const pos = getNodePos(node);
           return (
             <motion.div
@@ -120,12 +115,11 @@ const AgentNetwork = ({ agents }: AgentNetworkProps) => {
               dragMomentum={false}
               dragElastic={0}
               dragConstraints={containerRef}
-              onDrag={(_, info) => {
+              onDrag={(e) => {
                 const container = containerRef.current;
                 if (!container) return;
                 const rect = container.getBoundingClientRect();
-                // Use the element's current transform to compute position
-                const el = _.target as HTMLElement;
+                const el = e.target as HTMLElement;
                 const elRect = el.getBoundingClientRect();
                 const cx = elRect.left + 20 - rect.left;
                 const cy = elRect.top + 20 - rect.top;
@@ -136,15 +130,17 @@ const AgentNetwork = ({ agents }: AgentNetworkProps) => {
               whileHover={{ scale: 1.15 }}
               whileTap={{ scale: 1.05 }}
             >
-              {/* Profile avatar */}
-              <div className={`h-10 w-10 rounded-full border-2 flex items-center justify-center bg-gradient-to-br ${colorClass} transition-shadow duration-200 group-hover:shadow-[0_0_16px_-2px_hsl(var(--primary)/0.25)] ${
+              {/* Profile avatar image */}
+              <div className={`h-10 w-10 rounded-full border-2 overflow-hidden transition-shadow duration-200 group-hover:shadow-[0_0_16px_-2px_hsl(var(--primary)/0.25)] ${
                 node.status === "running"
                   ? "border-primary/50"
                   : "border-border"
               }`}>
-                <User className={`h-4 w-4 ${
-                  node.status === "running" ? "text-primary" : "text-muted-foreground"
-                }`} />
+                <img
+                  src={getAvatarUrl(node.id)}
+                  alt={node.name}
+                  className="h-full w-full object-cover"
+                />
               </div>
 
               {/* Tooltip */}
