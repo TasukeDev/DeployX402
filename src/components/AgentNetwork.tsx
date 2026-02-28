@@ -1,10 +1,7 @@
 import { motion } from "framer-motion";
 import { Bot } from "lucide-react";
 import { useState, useRef, useCallback } from "react";
-
-// DiceBear avatar URL generator — each agent gets a unique illustrated profile
-const getAvatarUrl = (seed: string) =>
-  `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${encodeURIComponent(seed)}&radius=50&backgroundColor=171717`;
+import agentHalo from "@/assets/agent-halo.png";
 
 interface AgentNetworkProps {
   agents: { id: string; name: string; status: string }[];
@@ -85,7 +82,7 @@ const AgentNetwork = ({ agents }: AgentNetworkProps) => {
           })}
         </svg>
 
-        {/* Center node — larger profile */}
+        {/* Center node — halo logo */}
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
@@ -93,12 +90,8 @@ const AgentNetwork = ({ agents }: AgentNetworkProps) => {
           className="absolute z-20"
           style={{ left: centerX - 28, top: centerY - 28 }}
         >
-          <div className="h-14 w-14 rounded-full border-2 border-primary/50 overflow-hidden shadow-[0_0_24px_-4px_hsl(var(--primary)/0.35)]">
-            <img
-              src={getAvatarUrl("solagent-center")}
-              alt="Center agent"
-              className="h-full w-full object-cover"
-            />
+          <div className="h-14 w-14 flex items-center justify-center">
+            <img src={agentHalo} alt="Center" className="h-14 w-14 object-contain drop-shadow-[0_0_12px_hsl(var(--primary)/0.5)]" />
           </div>
         </motion.div>
 
@@ -130,16 +123,16 @@ const AgentNetwork = ({ agents }: AgentNetworkProps) => {
               whileHover={{ scale: 1.15 }}
               whileTap={{ scale: 1.05 }}
             >
-              {/* Profile avatar image */}
-              <div className={`h-10 w-10 rounded-full border-2 overflow-hidden transition-shadow duration-200 group-hover:shadow-[0_0_16px_-2px_hsl(var(--primary)/0.25)] ${
-                node.status === "running"
-                  ? "border-primary/50"
-                  : "border-border"
-              }`}>
+              {/* Halo agent logo */}
+              <div className="h-10 w-10 flex items-center justify-center">
                 <img
-                  src={getAvatarUrl(node.id)}
+                  src={agentHalo}
                   alt={node.name}
-                  className="h-full w-full object-cover"
+                  className={`h-10 w-10 object-contain transition-all duration-200 ${
+                    node.status === "running"
+                      ? "drop-shadow-[0_0_10px_hsl(var(--primary)/0.5)]"
+                      : "opacity-60 grayscale-[30%]"
+                  }`}
                 />
               </div>
 
