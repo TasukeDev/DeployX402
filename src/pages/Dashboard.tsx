@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import AgentNetwork from "@/components/AgentNetwork";
 import ActivityFeed from "@/components/ActivityFeed";
+import agentHalo from "@/assets/agent-halo.png";
 import { motion, AnimatePresence } from "framer-motion";
 
 const AGENT_TYPES = [
