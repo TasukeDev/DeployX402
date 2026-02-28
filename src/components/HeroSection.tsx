@@ -25,8 +25,9 @@ const HeroSection = () => {
     let i = 0;
     const interval = setInterval(() => {
       if (i < TERMINAL_LINES.length) {
-        setLines((prev) => [...prev, TERMINAL_LINES[i]]);
+        const current = i;
         i++;
+        setLines((prev) => [...prev, TERMINAL_LINES[current]]);
       } else {
         clearInterval(interval);
       }
