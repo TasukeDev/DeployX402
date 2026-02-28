@@ -41,11 +41,27 @@ const Dashboard = () => {
   const [creating, setCreating] = useState(false);
   const [agentType, setAgentType] = useState("");
   const [actingOn, setActingOn] = useState<string | null>(null);
+  const [simInterval, setSimInterval] = useState<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (!authenticated && !connected) { navigate("/auth"); return; }
     fetchAgents();
   }, [authenticated, connected, navigate]);
+
+  // Run simulated trades every 15s when any agent is running
+  useEffect(() => {
+    const hasRunning = agents.some((a) => a.status === "running");
+    if (hasRunning) {
+      const runSim = () => supabase.functions.invoke("simulate-trades").catch(console.error);
+      runSim(); // immediate first run
+      const id = setInterval(runSim, 15000);
+      setSimInterval(id);
+      return () => clearInterval(id);
+    } else if (simInterval) {
+      clearInterval(simInterval);
+      setSimInterval(null);
+    }
+  }, [agents.map((a) => `${a.id}:${a.status}`).join(",")]);
 
   const fetchAgents = async () => {
     const { data, error } = await supabase.from("agents").select("*").order("created_at", { ascending: false });
@@ -214,18 +230,18 @@ const Dashboard = () => {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.35 + i * 0.04 }}
                       whileHover={{ y: -2, transition: { duration: 0.15 } }}
-                      className="rounded-xl border border-border bg-card p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 transition-colors duration-200 hover:border-primary/20"
+                      className="relative rounded-xl border border-border bg-card p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 transition-colors duration-200 hover:border-primary/20 overflow-hidden"
                     >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className={`relative h-9 w-9 rounded-full shrink-0 overflow-hidden border-2 ${isRunning ? "border-primary/40" : "border-border"}`}>
-                          <img
-                            src={agentHalo}
-                            alt={agent.name}
-                            className={`h-full w-full object-cover ${isRunning ? "drop-shadow-[0_0_8px_hsl(var(--primary)/0.5)]" : "opacity-60 grayscale-[30%]"}`}
-                          />
-                          {isRunning && <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-primary border border-card" />}
-                        </div>
-                        <div className="min-w-0">
+                      {/* Halo background watermark */}
+                      <img
+                        src={agentHalo}
+                        alt=""
+                        className={`absolute left-3 top-1/2 -translate-y-1/2 h-12 w-12 rounded-full object-cover pointer-events-none ${isRunning ? "opacity-20" : "opacity-10 grayscale"}`}
+                      />
+
+                      <div className="flex items-center gap-3 min-w-0 relative z-10">
+                        <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${isRunning ? "bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.6)]" : "bg-muted-foreground"}`} />
+                        <div className="min-w-0 ml-8">
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-mono font-medium truncate">{agent.name}</span>
                             <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">{agent.category}</span>
