@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.simulate-trades]
 verify_jwt = false
+
+[functions.generate-wallet]
+verify_jwt = false
