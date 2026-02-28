@@ -39,15 +39,15 @@ const StickyBottomCTA = () => {
           className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/40 bg-background/80 backdrop-blur-xl"
         >
           <div className="container mx-auto px-6 py-3 flex items-center justify-between gap-4">
-            <p className="text-sm text-muted-foreground hidden sm:block">
-              AI-powered memecoin trading on Solana — fully on-chain.
+            <p className="text-[13px] text-muted-foreground hidden sm:block">
+              Autonomous memecoin trading, verified on-chain.
             </p>
             <Button
               size="sm"
               onClick={handleCTA}
-              className="bg-primary text-primary-foreground hover:bg-primary/90 glow-primary px-6 font-semibold ml-auto"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 px-6 font-semibold text-xs ml-auto h-8"
             >
-              {connected ? "Dashboard" : "Connect Wallet"} <ArrowRight className="ml-2 h-3.5 w-3.5" />
+              {connected ? "Dashboard" : "Start Trading"} <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
             </Button>
           </div>
         </motion.div>
