@@ -3,9 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useWallet } from "@/components/WalletContext";
+import { useAuth } from "@/components/AuthContext";
 
 const Navbar = () => {
   const { connect, disconnect, connected, shortAddress } = useWallet();
+  const { authenticated, userDisplay } = useAuth();
   const navigate = useNavigate();
 
   return (
@@ -38,17 +40,18 @@ const Navbar = () => {
 
       <div className="h-3 w-px bg-border hidden sm:block" />
 
-      {connected ? (
+      {(authenticated || connected) ? (
         <div className="flex items-center gap-2">
           <button onClick={() => navigate("/dashboard")} className="text-xs font-mono text-primary hover:text-primary/80 transition-colors">
             Platform
           </button>
-          <span className="text-[10px] font-mono text-muted-foreground">{shortAddress}</span>
+          {connected && <span className="text-[10px] font-mono text-muted-foreground">{shortAddress}</span>}
+          {!connected && authenticated && <span className="text-[10px] font-mono text-muted-foreground">{userDisplay?.split("@")[0]}</span>}
         </div>
       ) : (
-        <button onClick={connect} className="text-xs font-mono text-primary hover:text-primary/80 transition-colors flex items-center gap-1.5">
+        <button onClick={() => navigate("/auth")} className="text-xs font-mono text-primary hover:text-primary/80 transition-colors flex items-center gap-1.5">
           <Wallet className="h-3 w-3" />
-          Connect
+          Launch
         </button>
       )}
     </nav>
