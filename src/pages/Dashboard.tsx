@@ -217,7 +217,14 @@ const Dashboard = () => {
                       className="rounded-xl border border-border bg-card p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 transition-colors duration-200 hover:border-primary/20"
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className={`h-2 w-2 rounded-full shrink-0 ${isRunning ? "bg-primary animate-pulse" : "bg-muted-foreground"}`} />
+                        <div className={`relative h-9 w-9 rounded-full shrink-0 overflow-hidden border-2 ${isRunning ? "border-primary/40" : "border-border"}`}>
+                          <img
+                            src={agentHalo}
+                            alt={agent.name}
+                            className={`h-full w-full object-cover ${isRunning ? "drop-shadow-[0_0_8px_hsl(var(--primary)/0.5)]" : "opacity-60 grayscale-[30%]"}`}
+                          />
+                          {isRunning && <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-primary border border-card" />}
+                        </div>
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-mono font-medium truncate">{agent.name}</span>
