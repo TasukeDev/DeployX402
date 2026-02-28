@@ -95,6 +95,7 @@ export type Database = {
           category: string
           created_at: string
           id: string
+          is_public: boolean
           model: string
           name: string
           status: string
@@ -106,6 +107,7 @@ export type Database = {
           category: string
           created_at?: string
           id?: string
+          is_public?: boolean
           model?: string
           name: string
           status?: string
@@ -117,6 +119,7 @@ export type Database = {
           category?: string
           created_at?: string
           id?: string
+          is_public?: boolean
           model?: string
           name?: string
           status?: string
@@ -125,6 +128,97 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      pnl_snapshots: {
+        Row: {
+          agent_id: string
+          id: string
+          pnl_sol: number
+          snapshot_at: string
+          total_trades: number
+          user_id: string
+          win_rate: number | null
+        }
+        Insert: {
+          agent_id: string
+          id?: string
+          pnl_sol?: number
+          snapshot_at?: string
+          total_trades?: number
+          user_id: string
+          win_rate?: number | null
+        }
+        Update: {
+          agent_id?: string
+          id?: string
+          pnl_sol?: number
+          snapshot_at?: string
+          total_trades?: number
+          user_id?: string
+          win_rate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pnl_snapshots_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trade_history: {
+        Row: {
+          action: string
+          agent_id: string
+          amount_sol: number
+          created_at: string
+          id: string
+          pnl_sol: number | null
+          price: number
+          signal: string | null
+          token_address: string | null
+          token_amount: number
+          token_symbol: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          agent_id: string
+          amount_sol?: number
+          created_at?: string
+          id?: string
+          pnl_sol?: number | null
+          price?: number
+          signal?: string | null
+          token_address?: string | null
+          token_amount?: number
+          token_symbol: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          agent_id?: string
+          amount_sol?: number
+          created_at?: string
+          id?: string
+          pnl_sol?: number | null
+          price?: number
+          signal?: string | null
+          token_address?: string | null
+          token_amount?: number
+          token_symbol?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trade_history_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

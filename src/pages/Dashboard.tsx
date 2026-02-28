@@ -11,8 +11,9 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import {
   Plus, Play, Square, RotateCcw, Trash2, ArrowLeft,
-  Rocket, Bot, Loader2, TrendingUp, Wallet, DollarSign, BarChart3,
+  Rocket, Bot, Loader2, TrendingUp, Wallet, DollarSign, BarChart3, Eye,
 } from "lucide-react";
+import ActivityFeed from "@/components/ActivityFeed";
 import { motion, AnimatePresence } from "framer-motion";
 
 const STRATEGIES = [
@@ -146,9 +147,14 @@ const Dashboard = () => {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-lg font-medium">Agents</h1>
-          <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-primary/30 bg-primary/10 text-xs font-mono text-primary hover:bg-primary/20 transition-colors">
-            <Plus className="h-3 w-3" /> new agent
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => navigate("/browse")} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-secondary text-xs font-mono text-muted-foreground hover:text-foreground transition-colors">
+              browse marketplace
+            </button>
+            <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-primary/30 bg-primary/10 text-xs font-mono text-primary hover:bg-primary/20 transition-colors">
+              <Plus className="h-3 w-3" /> new agent
+            </button>
+          </div>
         </div>
 
         {/* Deploy form */}
@@ -209,7 +215,8 @@ const Dashboard = () => {
             </button>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+           <div className="lg:col-span-2 space-y-2">
             {agents.map((agent, i) => {
               const pnl = mockPnl(agent.id);
               const isRunning = agent.status === "running";
@@ -235,11 +242,14 @@ const Dashboard = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 shrink-0">
+                   <div className="flex items-center gap-3 shrink-0">
                     <span className={`text-xs font-mono font-bold ${pnl >= 0 ? "text-primary" : "text-destructive"}`}>
                       {pnl >= 0 ? "+" : ""}{pnl.toFixed(2)} SOL
                     </span>
 
+                    <button onClick={() => navigate(`/agent/${agent.id}`)} className="p-1.5 rounded-md bg-secondary text-muted-foreground hover:text-foreground transition-colors">
+                      <Eye className="h-3 w-3" />
+                    </button>
                     {agent.status === "stopped" ? (
                       <button onClick={() => updateStatus(agent.id, "running")} disabled={actingOn === agent.id} className="p-1.5 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50">
                         <Play className="h-3 w-3" />
@@ -259,6 +269,10 @@ const Dashboard = () => {
                 </motion.div>
               );
             })}
+           </div>
+           <div className="lg:col-span-1">
+             <ActivityFeed agentIds={agents.map((a) => a.id)} />
+           </div>
           </div>
         )}
       </div>

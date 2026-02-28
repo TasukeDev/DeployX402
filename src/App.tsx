@@ -11,6 +11,8 @@ import SplashScreen from "@/components/SplashScreen";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
+import BrowseAgents from "./pages/BrowseAgents";
+import AgentDetail from "./pages/AgentDetail";
 import NotFound from "./pages/NotFound";
 import Docs from "./pages/Docs";
 
@@ -37,6 +39,8 @@ const App = () => {
                   <Route path="/" element={<Index />} />
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/browse" element={<BrowseAgents />} />
+                  <Route path="/agent/:id" element={<AgentDetail />} />
                   <Route path="/docs" element={<Docs />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
