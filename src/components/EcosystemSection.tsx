@@ -67,10 +67,11 @@ const EcosystemSection = () => {
                   else navigate(item.link);
                 }
               }}
-              className={`rounded-xl border p-6 transition-all duration-200 ${
+              whileHover={{ y: -4, transition: { duration: 0.2 } }}
+              className={`rounded-xl border p-6 transition-all duration-300 ${
                 item.highlight
-                  ? "border-primary/20 bg-primary/[0.03] hover:border-primary/40 cursor-pointer group"
-                  : "border-border bg-card hover:border-border/80"
+                  ? "border-primary/20 bg-primary/[0.03] hover:border-primary/40 hover:shadow-[0_0_30px_-8px_hsl(160_70%_45%/0.15)] cursor-pointer group"
+                  : "border-border bg-card hover:border-border/80 hover:shadow-[0_4px_20px_-4px_hsl(0_0%_0%/0.3)]"
               }`}
             >
               <item.icon className={`h-4 w-4 mb-4 ${item.highlight ? "text-primary" : "text-muted-foreground"}`} />

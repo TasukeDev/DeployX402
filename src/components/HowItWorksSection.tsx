@@ -40,13 +40,15 @@ const HowItWorksSection = () => {
               )}
 
               {/* Node */}
-              <div className={`relative z-10 flex h-12 w-12 items-center justify-center rounded-xl border text-xs font-mono font-semibold ${
+              <motion.div
+                whileHover={{ scale: 1.1, transition: { duration: 0.2 } }}
+                className={`relative z-10 flex h-12 w-12 items-center justify-center rounded-xl border text-xs font-mono font-semibold transition-colors duration-300 ${
                 step.accent
-                  ? "border-primary/40 bg-primary/10 text-primary"
-                  : "border-border bg-card text-foreground"
+                  ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20"
+                  : "border-border bg-card text-foreground hover:border-primary/30"
               }`}>
                 {step.icon || step.label.charAt(0)}
-              </div>
+              </motion.div>
 
               <div className="mt-3 text-center">
                 <p className="text-xs font-mono font-medium text-foreground">{step.label}</p>
