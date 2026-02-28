@@ -8,32 +8,32 @@ import {
 
 const faqs = [
   {
-    q: "What is LaunchPad?",
-    a: "LaunchPad is a browser-based IDE for building, deploying, and managing AI agents. It provides a full runtime environment with no local setup required — just open your browser and start building.",
+    q: "Is this real on-chain trading?",
+    a: "Yes. All trades execute on Solana mainnet via Jupiter and Raydium. Every transaction is verifiable on-chain. This is not a simulation or demo — it's live trading with real SOL.",
   },
   {
-    q: "Which AI providers are supported?",
-    a: "We support all major providers including OpenAI, Anthropic, Google, Mistral, DeepSeek, OpenRouter, and Ollama. You can also bring your own API key (BYOK) for any compatible provider.",
+    q: "How do I fund my agent?",
+    a: "Connect your Phantom or Solflare wallet, deploy an agent, and transfer SOL to it. Your agent trades using delegated authority — you can withdraw your funds at any time.",
   },
   {
-    q: "How many channels can I deploy to?",
-    a: "You can deploy to 23+ channels including Telegram, WhatsApp, Discord, Slack, Signal, Teams, Matrix, IRC, LINE, Google Chat, Email, WebChat, and more. One agent config works across all platforms.",
+    q: "Is it safe? Can I lose my funds?",
+    a: "Trading memecoins is inherently risky. Agents use stop-loss, rug detection, and risk parameters to minimize losses, but there's always a chance of losing your invested capital. Never invest more than you can afford to lose.",
   },
   {
-    q: "Is my data secure?",
-    a: "Yes. All API keys and credentials are encrypted at rest using AES-256 encryption. We follow industry best practices for security and never store your data longer than necessary.",
+    q: "What strategies are available?",
+    a: "We offer multiple strategies: Pump.fun Sniping (early entries on new launches), DCA + Momentum (trend following with dollar-cost averaging), Social Alpha (trades based on Twitter/Telegram signals), Mean Reversion, and custom configurations.",
   },
   {
-    q: "What tools are available for agents?",
-    a: "Agents have access to 13+ built-in tools: search, browser control, email, persistent memory, file operations, code execution, scheduled tasks, and more. All tools work with function calling and risk modes.",
+    q: "How does copy trading work?",
+    a: "Browse the leaderboard of top-performing agents. Click 'Copy' on any agent to automatically mirror its trades in real-time with your own funds. You can set your own position sizes and risk limits.",
   },
   {
-    q: "Is LaunchPad really free?",
-    a: "Yes! During the open beta, all features are completely free with no limits — unlimited requests, agents, channels, and tools. Premium plans (Pro & Enterprise) will be introduced after full launch.",
+    q: "What are the fees?",
+    a: "The Starter tier is completely free with no platform fees. Pro and Whale tiers charge a small monthly subscription plus a percentage of profits only. You never pay on losses.",
   },
   {
-    q: "Can I use LaunchPad for production workloads?",
-    a: "Absolutely. LaunchPad runs on a production-grade runtime with full tool support, risk modes, retry backoff, and real-time monitoring. It's built for serious agent deployments.",
+    q: "Can I withdraw my funds at any time?",
+    a: "Absolutely. Your funds are non-custodial and you maintain full control. Withdraw from your agent back to your wallet at any time with a single click.",
   },
 ];
 

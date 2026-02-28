@@ -1,18 +1,18 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Zap, Menu, X } from "lucide-react";
+import { Menu, X, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/components/AuthContext";
+import { useWallet } from "@/components/WalletContext";
 
 const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { login, logout, authenticated, userDisplay } = useAuth();
+  const { connect, disconnect, connected, shortAddress, balance } = useWallet();
   const navigate = useNavigate();
 
   const links = [
     { href: "#features", label: "Features" },
-    { href: "#developers", label: "API" },
-    { href: "#integrations", label: "Channels" },
+    { href: "#how-it-works", label: "How It Works" },
+    { href: "#leaderboard", label: "Leaderboard" },
     { href: "#pricing", label: "Pricing" },
     { href: "#faq", label: "FAQ" },
     { href: "/docs", label: "Docs", isRoute: true },
@@ -35,8 +35,8 @@ const Navbar = () => {
     <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/60 backdrop-blur-2xl">
       <div className="container mx-auto flex h-16 items-center justify-between px-6">
         <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="flex items-center gap-2.5 cursor-pointer">
-          <img src="/logo.png" alt="LaunchPad logo" className="h-8 w-8 rounded-lg" />
-          <span className="text-lg font-bold text-foreground tracking-tight">LaunchPad</span>
+          <img src="/logo.png" alt="SolAgent logo" className="h-8 w-8 rounded-lg" />
+          <span className="text-lg font-bold text-foreground tracking-tight">SolAgent</span>
         </button>
 
         <div className="hidden md:flex items-center gap-8">
@@ -48,16 +48,26 @@ const Navbar = () => {
         </div>
 
         <div className="hidden md:block">
-          {authenticated ? (
+          {connected ? (
             <div className="flex items-center gap-3">
-              <span className="text-xs text-muted-foreground truncate max-w-[140px]">{userDisplay}</span>
-              <Button size="sm" variant="outline" onClick={logout} className="border-border text-muted-foreground hover:text-foreground hover:bg-secondary">
-                Sign Out
+              <Button size="sm" variant="outline" onClick={() => navigate("/dashboard")} className="border-primary/30 text-primary hover:bg-primary/10">
+                Dashboard
+              </Button>
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-secondary text-xs">
+                <Wallet className="h-3 w-3 text-primary" />
+                <span className="text-foreground font-medium">{shortAddress}</span>
+                {balance !== null && (
+                  <span className="text-muted-foreground">{balance.toFixed(2)} SOL</span>
+                )}
+              </div>
+              <Button size="sm" variant="outline" onClick={disconnect} className="border-border text-muted-foreground hover:text-foreground hover:bg-secondary">
+                Disconnect
               </Button>
             </div>
           ) : (
-            <Button size="sm" variant="outline" onClick={login} className="border-primary/30 text-primary hover:bg-primary/10 hover:border-primary/50">
-              Sign In
+            <Button size="sm" onClick={connect} className="bg-primary text-primary-foreground hover:bg-primary/90 font-semibold">
+              <Wallet className="h-3.5 w-3.5 mr-1.5" />
+              Connect Wallet
             </Button>
           )}
         </div>
@@ -80,13 +90,17 @@ const Navbar = () => {
               </button>
             ))}
             <div className="pt-3 border-t border-border/50">
-              {authenticated ? (
+              {connected ? (
                 <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground truncate">{userDisplay}</p>
-                  <Button size="sm" variant="outline" onClick={logout} className="w-full border-border text-muted-foreground">Sign Out</Button>
+                  <p className="text-xs text-muted-foreground truncate">{shortAddress}</p>
+                  <Button size="sm" variant="outline" onClick={() => navigate("/dashboard")} className="w-full">Dashboard</Button>
+                  <Button size="sm" variant="outline" onClick={disconnect} className="w-full border-border text-muted-foreground">Disconnect</Button>
                 </div>
               ) : (
-                <Button size="sm" onClick={login} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">Sign In</Button>
+                <Button size="sm" onClick={connect} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
+                  <Wallet className="h-3.5 w-3.5 mr-1.5" />
+                  Connect Wallet
+                </Button>
               )}
             </div>
           </div>

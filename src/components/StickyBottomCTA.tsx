@@ -1,12 +1,12 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/components/AuthContext";
+import { useWallet } from "@/components/WalletContext";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 
 const StickyBottomCTA = () => {
-  const { login, authenticated } = useAuth();
+  const { connect, connected } = useWallet();
   const navigate = useNavigate();
   const [visible, setVisible] = useState(false);
 
@@ -21,10 +21,10 @@ const StickyBottomCTA = () => {
   }, []);
 
   const handleCTA = () => {
-    if (authenticated) {
+    if (connected) {
       navigate("/dashboard");
     } else {
-      login();
+      connect();
     }
   };
 
@@ -40,14 +40,14 @@ const StickyBottomCTA = () => {
         >
           <div className="container mx-auto px-6 py-3 flex items-center justify-between gap-4">
             <p className="text-sm text-muted-foreground hidden sm:block">
-              Build & deploy AI agents from your browser — no setup needed.
+              AI-powered memecoin trading on Solana — fully on-chain.
             </p>
             <Button
               size="sm"
               onClick={handleCTA}
               className="bg-primary text-primary-foreground hover:bg-primary/90 glow-primary px-6 font-semibold ml-auto"
             >
-              Start Building Free <ArrowRight className="ml-2 h-3.5 w-3.5" />
+              {connected ? "Dashboard" : "Connect Wallet"} <ArrowRight className="ml-2 h-3.5 w-3.5" />
             </Button>
           </div>
         </motion.div>

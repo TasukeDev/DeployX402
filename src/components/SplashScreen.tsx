@@ -13,11 +13,7 @@ const SplashScreen = ({ onComplete }: SplashScreenProps) => {
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.5 }}
-        onAnimationComplete={(definition) => {
-          // handled by parent timeout
-        }}
       >
-        {/* Orb backgrounds */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <motion.div
             className="absolute top-1/2 left-1/2 w-[600px] h-[600px] -translate-x-1/2 -translate-y-1/2 orb-cyan rounded-full"
@@ -33,7 +29,6 @@ const SplashScreen = ({ onComplete }: SplashScreenProps) => {
           />
         </div>
 
-        {/* Logo */}
         <motion.div
           className="relative"
           initial={{ scale: 0, rotate: -180 }}
@@ -49,22 +44,17 @@ const SplashScreen = ({ onComplete }: SplashScreenProps) => {
             ]}}
             transition={{ duration: 2, delay: 0.8, ease: "easeInOut" }}
           >
-            <img
-              src="/logo.png"
-              alt="LaunchPad"
-              className="h-24 w-24 rounded-3xl"
-            />
+            <img src="/logo.png" alt="SolAgent" className="h-24 w-24 rounded-3xl" />
           </motion.div>
         </motion.div>
 
-        {/* Text */}
         <motion.h1
           className="mt-8 text-3xl font-extrabold tracking-tight text-foreground"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.7, duration: 0.6 }}
         >
-          Launch<span className="text-primary">Pad</span>
+          Sol<span className="text-primary">Agent</span>
         </motion.h1>
 
         <motion.p
@@ -73,10 +63,9 @@ const SplashScreen = ({ onComplete }: SplashScreenProps) => {
           animate={{ opacity: 1 }}
           transition={{ delay: 1.1, duration: 0.6 }}
         >
-          Deploy AI Agents Everywhere
+          AI-Powered Memecoin Trading
         </motion.p>
 
-        {/* Loading bar */}
         <motion.div
           className="mt-10 h-1 w-48 overflow-hidden rounded-full bg-secondary"
           initial={{ opacity: 0 }}
