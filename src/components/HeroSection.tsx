@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { ArrowRight, BookOpen, LayoutDashboard } from "lucide-react";
 import { useWallet } from "@/components/WalletContext";
+import { useAuth } from "@/components/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 
@@ -18,6 +19,7 @@ const TERMINAL_LINES = [
 
 const HeroSection = () => {
   const { connect, connected } = useWallet();
+  const { authenticated } = useAuth();
   const navigate = useNavigate();
   const [lines, setLines] = useState<typeof TERMINAL_LINES>([]);
 
@@ -36,8 +38,8 @@ const HeroSection = () => {
   }, []);
 
   const handleCTA = () => {
-    if (connected) navigate("/dashboard");
-    else connect();
+    if (authenticated || connected) navigate("/dashboard");
+    else navigate("/auth");
   };
 
   return (
@@ -76,7 +78,7 @@ const HeroSection = () => {
               className="flex items-center gap-2 px-4 py-2 rounded-full border border-primary/30 bg-primary/10 text-xs font-mono text-primary hover:bg-primary/20 transition-colors"
             >
               <LayoutDashboard className="h-3 w-3" />
-              {connected ? "Platform" : "Launch Platform"}
+              {(authenticated || connected) ? "Platform" : "Launch Platform"}
             </button>
           </div>
         </motion.div>
