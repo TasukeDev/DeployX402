@@ -1,10 +1,20 @@
 import { motion } from "framer-motion";
-import { Zap, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 const FooterCTA = () => {
-  const { login } = useAuth();
+  const { login, authenticated } = useAuth();
+  const navigate = useNavigate();
+
+  const handleCTA = () => {
+    if (authenticated) {
+      navigate("/dashboard");
+    } else {
+      login();
+    }
+  };
   return (
     <footer className="py-24 border-t border-border/40 relative overflow-hidden">
       <div className="absolute inset-0 orb-cyan opacity-20" />
@@ -23,7 +33,7 @@ const FooterCTA = () => {
           <p className="text-muted-foreground mb-8 max-w-md mx-auto">
             Build, deploy, and manage agents from your browser. No infrastructure needed.
           </p>
-          <Button size="lg" onClick={login} className="bg-primary text-primary-foreground hover:bg-primary/90 glow-primary px-8 font-semibold">
+          <Button size="lg" onClick={handleCTA} className="bg-primary text-primary-foreground hover:bg-primary/90 glow-primary px-8 font-semibold">
             Start Building Free <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         </motion.div>
