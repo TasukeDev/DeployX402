@@ -17,30 +17,31 @@ const FooterCTA = () => {
   };
 
   return (
-    <footer className="py-24 border-t border-border/40 relative overflow-hidden">
-      <div className="absolute inset-0 orb-cyan opacity-20" />
+    <footer className="py-24 relative overflow-hidden">
+      <div className="divider-fade mb-24" />
       <div className="container mx-auto px-6 text-center relative z-10">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 15 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
         >
-          <img src="/logo.png" alt="Logo" className="h-12 w-12 rounded-2xl mx-auto mb-6" />
-          <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-4">
-            Ready to let AI
-            <br />
-            <span className="text-gradient-hero">trade for you?</span>
+          <h2 className="text-3xl md:text-5xl font-display font-bold tracking-tight mb-5">
+            Start Trading Today
           </h2>
-          <p className="text-muted-foreground mb-8 max-w-md mx-auto">
-            Connect your wallet, fund an agent, and start trading memecoins on autopilot.
+          <p className="text-muted-foreground mb-10 max-w-md mx-auto text-sm">
+            Connect your wallet, fund an agent, and put your portfolio on autopilot.
           </p>
-          <Button size="lg" onClick={handleCTA} className="bg-primary text-primary-foreground hover:bg-primary/90 glow-primary px-8 font-semibold">
+          <Button size="lg" onClick={handleCTA} className="bg-primary text-primary-foreground hover:bg-primary/90 glow-primary px-8 h-12 font-semibold text-sm">
             {connected ? "Go to Dashboard" : "Connect Wallet"} <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         </motion.div>
 
-        <div className="mt-16 pt-8 border-t border-border/30 text-xs text-muted-foreground">
-          © 2026 SolAgent. All rights reserved. Trading involves risk.
+        <div className="mt-20 pt-8 border-t border-border/30 flex flex-col sm:flex-row items-center justify-between text-[11px] text-muted-foreground gap-4">
+          <div className="flex items-center gap-2">
+            <img src="/logo.png" alt="SolAgent" className="h-5 w-5 rounded" />
+            <span>SolAgent</span>
+          </div>
+          <p>© 2026 SolAgent. All rights reserved. Trading involves risk.</p>
         </div>
       </div>
     </footer>

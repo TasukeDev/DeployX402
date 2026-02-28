@@ -1,75 +1,72 @@
 import { motion } from "framer-motion";
-import { TrendingUp, Trophy, Users, Copy } from "lucide-react";
+import { TrendingUp, Trophy, Users, Copy, ArrowUpRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const topAgents = [
-  { name: "AlphaSniper", strategy: "Pump.fun Sniper", pnl: "+142%", trades: 3420, followers: 89, risk: "High" },
-  { name: "SteadyEddie", strategy: "DCA + Momentum", pnl: "+67%", trades: 1890, followers: 234, risk: "Medium" },
-  { name: "RugHunter", strategy: "Social Alpha", pnl: "+53%", trades: 980, followers: 156, risk: "Medium" },
-  { name: "MicroCap_AI", strategy: "Low-Cap Gems", pnl: "+41%", trades: 2100, followers: 67, risk: "High" },
-  { name: "SafeYield", strategy: "Mean Reversion", pnl: "+28%", trades: 560, followers: 312, risk: "Low" },
+  { name: "AlphaSniper", strategy: "Pump.fun Sniper", pnl: "+142.3%", pnlSol: "+28.4 SOL", trades: 3420, winRate: "67%", followers: 89 },
+  { name: "SteadyEddie", strategy: "DCA + Momentum", pnl: "+67.8%", pnlSol: "+13.5 SOL", trades: 1890, winRate: "72%", followers: 234 },
+  { name: "RugHunter", strategy: "Social Alpha", pnl: "+53.1%", pnlSol: "+10.6 SOL", trades: 980, winRate: "64%", followers: 156 },
+  { name: "MicroCap_AI", strategy: "Low-Cap Gems", pnl: "+41.2%", pnlSol: "+8.2 SOL", trades: 2100, winRate: "58%", followers: 67 },
+  { name: "SafeYield", strategy: "Mean Reversion", pnl: "+28.9%", pnlSol: "+5.7 SOL", trades: 560, winRate: "78%", followers: 312 },
 ];
 
 const LeaderboardSection = () => {
   return (
-    <section id="leaderboard" className="py-32 relative overflow-hidden">
-      <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] orb-purple animate-float-slow rounded-full" />
-      <div className="container mx-auto px-6 relative z-10">
+    <section id="performance" className="py-28 relative">
+      <div className="container mx-auto px-6">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 15 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           className="text-center mb-16"
         >
-          <p className="text-xs uppercase tracking-[0.25em] text-primary mb-3 font-medium">Leaderboard</p>
-          <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight">
-            Top performing
-            <br />
-            <span className="text-gradient-hero">trading agents.</span>
+          <p className="text-[11px] uppercase tracking-[0.3em] text-primary/70 mb-4 font-medium">Performance</p>
+          <h2 className="text-3xl md:text-5xl font-display font-bold tracking-tight mb-4">
+            Verified On-Chain Results
           </h2>
-          <p className="text-muted-foreground mt-4 max-w-md mx-auto">
-            Follow the best agents or deploy your own. All PnL is verified on-chain.
+          <p className="text-muted-foreground text-sm max-w-md mx-auto">
+            Every trade is recorded on Solana. Every PnL is verifiable. No faking it.
           </p>
         </motion.div>
 
-        <div className="max-w-3xl mx-auto space-y-2">
+        <div className="max-w-3xl mx-auto">
+          {/* Table header */}
+          <div className="grid grid-cols-[auto_1fr_auto_auto_auto] sm:grid-cols-[auto_1fr_auto_auto_auto_auto] gap-4 px-5 py-3 text-[10px] uppercase tracking-widest text-muted-foreground border-b border-border/60">
+            <span className="w-8">#</span>
+            <span>Agent</span>
+            <span className="text-right">PnL</span>
+            <span className="text-right hidden sm:block">Win Rate</span>
+            <span className="text-right hidden sm:block">Followers</span>
+            <span></span>
+          </div>
+
           {topAgents.map((agent, i) => (
             <motion.div
               key={agent.name}
-              initial={{ opacity: 0, x: -20 }}
-              whileInView={{ opacity: 1, x: 0 }}
+              initial={{ opacity: 0, y: 8 }}
+              whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ delay: i * 0.06 }}
-              className="rounded-xl border border-border/60 bg-card/80 backdrop-blur-sm p-4 flex items-center justify-between gap-4"
+              transition={{ delay: i * 0.05 }}
+              className="grid grid-cols-[auto_1fr_auto_auto_auto] sm:grid-cols-[auto_1fr_auto_auto_auto_auto] gap-4 px-5 py-4 items-center border-b border-border/30 hover:bg-secondary/20 transition-colors group"
             >
-              <div className="flex items-center gap-4">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 border border-primary/20 text-xs font-bold text-primary">
-                  {i === 0 ? <Trophy className="h-4 w-4" /> : `#${i + 1}`}
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-foreground">{agent.name}</h4>
-                  <p className="text-[10px] text-muted-foreground">{agent.strategy}</p>
-                </div>
+              <span className="w-8 text-sm font-bold text-muted-foreground">
+                {i === 0 ? <Trophy className="h-4 w-4 text-primary" /> : `${i + 1}`}
+              </span>
+              <div className="min-w-0">
+                <h4 className="text-sm font-semibold text-foreground truncate">{agent.name}</h4>
+                <p className="text-[11px] text-muted-foreground">{agent.strategy}</p>
               </div>
-
-              <div className="hidden sm:flex items-center gap-6 text-xs">
-                <div className="text-center">
-                  <p className="font-bold text-green-400">{agent.pnl}</p>
-                  <p className="text-muted-foreground">PnL</p>
-                </div>
-                <div className="text-center">
-                  <p className="font-bold text-foreground">{agent.trades}</p>
-                  <p className="text-muted-foreground">Trades</p>
-                </div>
-                <div className="flex items-center gap-1 text-muted-foreground">
-                  <Users className="h-3 w-3" />
-                  {agent.followers}
-                </div>
+              <div className="text-right">
+                <p className="text-sm font-bold text-success">{agent.pnl}</p>
+                <p className="text-[10px] text-muted-foreground">{agent.pnlSol}</p>
               </div>
-
-              <Button size="sm" variant="outline" className="border-primary/30 text-primary hover:bg-primary/10 text-xs">
-                <Copy className="h-3 w-3 mr-1" />
-                Copy
+              <span className="text-sm text-foreground text-right hidden sm:block">{agent.winRate}</span>
+              <span className="text-xs text-muted-foreground text-right hidden sm:flex items-center justify-end gap-1">
+                <Users className="h-3 w-3" />
+                {agent.followers}
+              </span>
+              <Button size="sm" variant="ghost" className="text-primary hover:bg-primary/10 text-[11px] h-7 px-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                Copy <ArrowUpRight className="h-3 w-3 ml-0.5" />
               </Button>
             </motion.div>
           ))}
