@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Zap, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/AuthContext";
@@ -6,6 +7,7 @@ import { useAuth } from "@/components/AuthContext";
 const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { login, logout, authenticated, userDisplay } = useAuth();
+  const navigate = useNavigate();
 
   const links = [
     { href: "#features", label: "Features" },
@@ -13,11 +15,20 @@ const Navbar = () => {
     { href: "#integrations", label: "Channels" },
     { href: "#pricing", label: "Pricing" },
     { href: "#faq", label: "FAQ" },
+    { href: "/docs", label: "Docs", isRoute: true },
   ];
 
   const scrollTo = (href: string) => {
     const id = href.replace('#', '');
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const handleLinkClick = (l: { href: string; isRoute?: boolean }) => {
+    if (l.isRoute) {
+      navigate(l.href);
+    } else {
+      scrollTo(l.href);
+    }
   };
 
   return (
@@ -30,7 +41,7 @@ const Navbar = () => {
 
         <div className="hidden md:flex items-center gap-8">
           {links.map((l) => (
-            <button key={l.href} onClick={() => scrollTo(l.href)} className="text-sm text-muted-foreground hover:text-primary transition-colors">
+            <button key={l.href} onClick={() => handleLinkClick(l)} className="text-sm text-muted-foreground hover:text-primary transition-colors">
               {l.label}
             </button>
           ))}
@@ -64,7 +75,7 @@ const Navbar = () => {
         <div className="md:hidden border-t border-border/50 bg-background/95 backdrop-blur-2xl">
           <div className="container mx-auto px-6 py-4 space-y-1">
             {links.map((l) => (
-              <button key={l.href} onClick={() => { scrollTo(l.href); setMobileOpen(false); }} className="block w-full text-left py-3 text-sm text-muted-foreground hover:text-primary transition-colors">
+              <button key={l.href} onClick={() => { handleLinkClick(l); setMobileOpen(false); }} className="block w-full text-left py-3 text-sm text-muted-foreground hover:text-primary transition-colors">
                 {l.label}
               </button>
             ))}

@@ -6,6 +6,7 @@ import {
   Braces, Shield, Layers, Cpu, ChevronRight, Copy, Check, Globe, Key
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Highlight, themes } from "prism-react-renderer";
 
 type DocSection = {
   id: string;
@@ -329,9 +330,23 @@ const Docs = () => {
                             )}
                           </button>
                         </div>
-                        <pre className="p-4 text-[12px] leading-relaxed font-mono text-terminal-value overflow-x-auto">
-                          <code>{block.value}</code>
-                        </pre>
+                        <Highlight
+                          theme={themes.nightOwl}
+                          code={block.value}
+                          language={block.lang === "bash" ? "bash" : block.lang === "typescript" ? "typescript" : "javascript"}
+                        >
+                          {({ tokens, getLineProps, getTokenProps }) => (
+                            <pre className="p-4 text-[12px] leading-relaxed font-mono overflow-x-auto bg-transparent">
+                              {tokens.map((line, li) => (
+                                <div key={li} {...getLineProps({ line })}>
+                                  {line.map((token, ti) => (
+                                    <span key={ti} {...getTokenProps({ token })} />
+                                  ))}
+                                </div>
+                              ))}
+                            </pre>
+                          )}
+                        </Highlight>
                       </div>
                     );
                   }
