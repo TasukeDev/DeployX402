@@ -23,9 +23,7 @@ const Navbar = () => {
     <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/60 backdrop-blur-2xl">
       <div className="container mx-auto flex h-16 items-center justify-between px-6">
         <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="flex items-center gap-2.5 cursor-pointer">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 border border-primary/20">
-            <Zap className="h-4 w-4 text-primary" />
-          </div>
+          <img src="/logo.png" alt="LaunchPad logo" className="h-8 w-8 rounded-lg" />
           <span className="text-lg font-bold text-foreground tracking-tight">LaunchPad</span>
         </button>
 
