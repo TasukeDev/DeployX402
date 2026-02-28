@@ -43,7 +43,7 @@ const HeroSection = () => {
   };
 
   return (
-    <section className="relative min-h-screen flex flex-col items-center justify-center px-6">
+    <section id="hero-section" className="relative min-h-screen flex flex-col items-center justify-center px-6">
       <div className="w-full max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
         {/* Left side */}
         <motion.div
