@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/components/AuthContext";
 import { WalletProvider } from "@/components/WalletContext";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
 import SplashScreen from "@/components/SplashScreen";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
@@ -26,16 +26,12 @@ const App = () => {
           <TooltipProvider>
             <Toaster />
             <Sonner />
-            <AnimatePresence>
-              {showSplash && (
-                <SplashScreen onComplete={() => setShowSplash(false)} />
-              )}
+            <AnimatePresence mode="wait">
+              {showSplash ? (
+                <SplashScreen key="splash" onComplete={() => setShowSplash(false)} />
+              ) : null}
             </AnimatePresence>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: showSplash ? 0 : 1 }}
-              transition={{ duration: 0.5 }}
-            >
+            {!showSplash && (
               <BrowserRouter>
                 <Routes>
                   <Route path="/" element={<Index />} />
@@ -45,7 +41,7 @@ const App = () => {
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </BrowserRouter>
-            </motion.div>
+            )}
           </TooltipProvider>
         </QueryClientProvider>
       </WalletProvider>
