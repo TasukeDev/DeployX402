@@ -8,6 +8,7 @@ import BrowseAgents from "@/pages/BrowseAgents";
 import AgentDetail from "@/pages/AgentDetail";
 import NotFound from "@/pages/NotFound";
 import Docs from "@/pages/Docs";
+import Leaderboard from "@/pages/Leaderboard";
 
 const AnimatedRoutes = () => {
   const location = useLocation();
@@ -21,6 +22,7 @@ const AnimatedRoutes = () => {
         <Route path="/browse" element={<PageTransition><BrowseAgents /></PageTransition>} />
         <Route path="/agent/:id" element={<PageTransition><AgentDetail /></PageTransition>} />
         <Route path="/docs" element={<PageTransition><Docs /></PageTransition>} />
+        <Route path="/leaderboard" element={<PageTransition><Leaderboard /></PageTransition>} />
         <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
       </Routes>
     </AnimatePresence>

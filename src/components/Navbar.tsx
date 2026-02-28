@@ -23,6 +23,7 @@ const Navbar = () => {
         {[
           { href: "#how-it-works", label: "How" },
           { href: "#ecosystem", label: "Ecosystem" },
+          { href: "/leaderboard", label: "Leaderboard", isRoute: true },
           { href: "/docs", label: "Docs", isRoute: true },
         ].map((l) => (
           <button
