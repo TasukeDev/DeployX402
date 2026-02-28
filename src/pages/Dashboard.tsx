@@ -6,11 +6,7 @@ import { useWallet } from "@/components/WalletContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -25,19 +21,14 @@ const STRATEGIES = [
 ];
 
 const RISK_LEVELS = [
-  { value: "low", label: "Low Risk (Conservative)" },
-  { value: "medium", label: "Medium Risk (Balanced)" },
-  { value: "high", label: "High Risk (Aggressive)" },
+  { value: "low", label: "Conservative" },
+  { value: "medium", label: "Balanced" },
+  { value: "high", label: "Aggressive" },
 ];
 
 interface Agent {
-  id: string;
-  name: string;
-  category: string;
-  model: string;
-  status: string;
-  system_prompt: string | null;
-  created_at: string;
+  id: string; name: string; category: string; model: string;
+  status: string; system_prompt: string | null; created_at: string;
 }
 
 const Dashboard = () => {
@@ -57,23 +48,14 @@ const Dashboard = () => {
   const [actingOn, setActingOn] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!authenticated && !connected) {
-      navigate("/auth");
-      return;
-    }
+    if (!authenticated && !connected) { navigate("/auth"); return; }
     fetchAgents();
   }, [authenticated, connected, navigate]);
 
   const fetchAgents = async () => {
-    const { data, error } = await supabase
-      .from("agents")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
-      setAgents(data || []);
-    }
+    const { data, error } = await supabase.from("agents").select("*").order("created_at", { ascending: false });
+    if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
+    else setAgents(data || []);
     setLoading(false);
   };
 
@@ -82,216 +64,149 @@ const Dashboard = () => {
     if (!name || !strategy) return;
     setCreating(true);
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      toast({ title: "Error", description: "Not authenticated", variant: "destructive" });
-      setCreating(false);
-      return;
-    }
+    if (!user) { toast({ title: "Error", description: "Not authenticated", variant: "destructive" }); setCreating(false); return; }
     const { error } = await supabase.from("agents").insert({
       name, category: strategy, model: `risk:${riskLevel}`,
-      system_prompt: fundAmount ? `fund:${fundAmount}` : null,
-      user_id: user.id, status: "stopped",
+      system_prompt: fundAmount ? `fund:${fundAmount}` : null, user_id: user.id, status: "stopped",
     });
-    if (error) {
-      toast({ title: "Deploy failed", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Agent deployed!", description: `${name} is ready to trade.` });
-      setName(""); setStrategy(""); setRiskLevel("medium"); setFundAmount("");
-      setShowForm(false); fetchAgents();
-    }
+    if (error) toast({ title: "Deploy failed", description: error.message, variant: "destructive" });
+    else { toast({ title: "Agent deployed!", description: `${name} is ready.` }); setName(""); setStrategy(""); setRiskLevel("medium"); setFundAmount(""); setShowForm(false); fetchAgents(); }
     setCreating(false);
   };
 
   const updateStatus = async (agentId: string, newStatus: string) => {
     setActingOn(agentId);
-    const { error } = await supabase.from("agents")
-      .update({ status: newStatus, updated_at: new Date().toISOString() })
-      .eq("id", agentId);
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
-      setAgents((prev) => prev.map((a) => (a.id === agentId ? { ...a, status: newStatus } : a)));
-      toast({ title: `Agent ${newStatus === "running" ? "started trading" : newStatus}` });
-    }
+    const { error } = await supabase.from("agents").update({ status: newStatus, updated_at: new Date().toISOString() }).eq("id", agentId);
+    if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
+    else { setAgents((prev) => prev.map((a) => (a.id === agentId ? { ...a, status: newStatus } : a))); toast({ title: `Agent ${newStatus === "running" ? "started" : newStatus}` }); }
     setActingOn(null);
   };
 
   const deleteAgent = async (agentId: string) => {
     setActingOn(agentId);
     const { error } = await supabase.from("agents").delete().eq("id", agentId);
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
-      setAgents((prev) => prev.filter((a) => a.id !== agentId));
-      toast({ title: "Agent deleted" });
-    }
+    if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
+    else { setAgents((prev) => prev.filter((a) => a.id !== agentId)); toast({ title: "Agent deleted" }); }
     setActingOn(null);
   };
 
-  const mockPnl = (id: string) => {
-    const hash = id.charCodeAt(0) + id.charCodeAt(1);
-    return ((hash % 80) - 20) / 10;
-  };
-
-  const getRiskLabel = (model: string) => {
-    if (model.startsWith("risk:")) {
-      const level = model.replace("risk:", "");
-      return RISK_LEVELS.find(r => r.value === level)?.label || level;
-    }
-    return model;
-  };
-
-  const getFundAmount = (prompt: string | null) => {
-    if (prompt?.startsWith("fund:")) return prompt.replace("fund:", "") + " SOL";
-    return "—";
-  };
+  const mockPnl = (id: string) => { const h = id.charCodeAt(0) + id.charCodeAt(1); return ((h % 80) - 20) / 10; };
+  const getRiskLabel = (m: string) => m.startsWith("risk:") ? (RISK_LEVELS.find(r => r.value === m.replace("risk:", ""))?.label || m) : m;
+  const getFundAmount = (p: string | null) => p?.startsWith("fund:") ? p.replace("fund:", "") + " SOL" : "—";
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Top bar */}
-      <nav className="border-b border-border/40 bg-background/70 backdrop-blur-2xl sticky top-0 z-50">
-        <div className="container mx-auto flex h-14 items-center justify-between px-6">
-          <div className="flex items-center gap-4">
+      {/* Nav */}
+      <nav className="border-b border-border/40 bg-background/80 backdrop-blur-xl sticky top-0 z-50">
+        <div className="container mx-auto flex h-12 items-center justify-between px-6">
+          <div className="flex items-center gap-3">
             <button onClick={() => navigate("/")} className="text-muted-foreground hover:text-foreground transition-colors">
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className="h-3.5 w-3.5" />
             </button>
             <div className="flex items-center gap-2">
-              <img src="/logo.png" alt="SolAgent" className="h-6 w-6 rounded-md" />
-              <span className="text-sm font-bold tracking-tight">Dashboard</span>
+              <span className="text-primary font-mono text-[10px]">◆</span>
+              <span className="text-xs font-mono font-medium">solagent</span>
+              <span className="text-[10px] text-muted-foreground font-mono">/ dashboard</span>
             </div>
           </div>
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             {connected ? (
               <>
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border bg-secondary/50 text-[11px]">
-                  <Wallet className="h-3 w-3 text-primary" />
-                  <span className="text-foreground font-medium">{shortAddress}</span>
-                  {balance !== null && (
-                    <span className="text-muted-foreground">{balance.toFixed(2)} SOL</span>
-                  )}
-                </div>
-                <Button size="sm" variant="ghost" onClick={disconnect} className="text-muted-foreground hover:text-foreground text-xs h-8">
-                  Disconnect
-                </Button>
+                <span className="text-[10px] font-mono text-muted-foreground">{shortAddress}</span>
+                {balance !== null && <span className="text-[10px] font-mono text-primary">{balance.toFixed(2)} SOL</span>}
+                <button onClick={disconnect} className="text-[10px] font-mono text-muted-foreground hover:text-foreground ml-2">disconnect</button>
               </>
             ) : (
-              <Button size="sm" onClick={connect} className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs h-8">
-                <Wallet className="h-3.5 w-3.5 mr-1.5" />
-                Connect
-              </Button>
+              <button onClick={connect} className="text-xs font-mono text-primary hover:text-primary/80 flex items-center gap-1.5">
+                <Wallet className="h-3 w-3" /> connect
+              </button>
             )}
           </div>
         </div>
       </nav>
 
-      <div className="container mx-auto px-6 py-10">
-        {/* Portfolio Overview */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-px bg-border/40 rounded-2xl overflow-hidden mb-10">
+      <div className="container mx-auto px-6 py-10 max-w-4xl">
+        {/* Stats */}
+        <div className="grid grid-cols-3 gap-3 mb-10">
           {[
-            { label: "Total Funded", value: `${agents.reduce((sum, a) => sum + (parseFloat(getFundAmount(a.system_prompt)) || 0), 0).toFixed(2)} SOL`, icon: DollarSign },
-            { label: "Active Agents", value: agents.filter(a => a.status === "running").length.toString(), icon: Bot },
-            { label: "Total PnL", value: `${agents.reduce((sum, a) => sum + mockPnl(a.id), 0).toFixed(1)} SOL`, icon: BarChart3 },
-          ].map((stat) => (
-            <div key={stat.label} className="bg-card p-6 flex items-center gap-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 border border-primary/20">
-                <stat.icon className="h-5 w-5 text-primary" />
-              </div>
+            { label: "Funded", value: `${agents.reduce((s, a) => s + (parseFloat(getFundAmount(a.system_prompt)) || 0), 0).toFixed(2)} SOL`, icon: DollarSign },
+            { label: "Active", value: agents.filter(a => a.status === "running").length.toString(), icon: Bot },
+            { label: "PnL", value: `${agents.reduce((s, a) => s + mockPnl(a.id), 0).toFixed(1)} SOL`, icon: BarChart3 },
+          ].map((s) => (
+            <div key={s.label} className="rounded-xl border border-border bg-card p-4 flex items-center gap-3">
+              <s.icon className="h-4 w-4 text-primary" />
               <div>
-                <p className="text-[11px] text-muted-foreground uppercase tracking-wider">{stat.label}</p>
-                <p className="text-xl stat-number text-foreground">{stat.value}</p>
+                <p className="text-[10px] font-mono text-muted-foreground uppercase">{s.label}</p>
+                <p className="text-sm font-mono font-bold text-foreground">{s.value}</p>
               </div>
             </div>
           ))}
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-2xl font-display font-bold tracking-tight">Your Trading Agents</h1>
-            <p className="text-sm text-muted-foreground mt-1">Deploy, fund, and manage your AI agents.</p>
-          </div>
-          <Button onClick={() => setShowForm(!showForm)} className="bg-primary text-primary-foreground hover:bg-primary/90 font-semibold text-xs h-9">
-            <Plus className="h-3.5 w-3.5 mr-1.5" />
-            New Agent
-          </Button>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-lg font-medium">Agents</h1>
+          <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-primary/30 bg-primary/10 text-xs font-mono text-primary hover:bg-primary/20 transition-colors">
+            <Plus className="h-3 w-3" /> new agent
+          </button>
         </div>
 
-        {/* Create Agent Form */}
+        {/* Deploy form */}
         <AnimatePresence>
           {showForm && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="overflow-hidden mb-8"
-            >
-              <form onSubmit={handleDeploy} className="rounded-2xl border border-border/60 bg-card p-7 space-y-5">
-                <h2 className="text-base font-bold flex items-center gap-2">
-                  <Rocket className="h-4 w-4 text-primary" />
-                  Deploy Trading Agent
-                </h2>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Agent Name</label>
-                    <Input placeholder="My Sniper Bot" value={name} onChange={(e) => setName(e.target.value)} required className="bg-secondary/50 border-border h-10" />
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden mb-6">
+              <form onSubmit={handleDeploy} className="rounded-xl border border-border bg-card p-6 space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Rocket className="h-3.5 w-3.5 text-primary" />
+                  <span className="text-xs font-mono font-medium">deploy agent</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-mono text-muted-foreground uppercase">name</label>
+                    <Input placeholder="alpha-sniper" value={name} onChange={(e) => setName(e.target.value)} required className="bg-secondary/50 border-border h-9 font-mono text-xs" />
                   </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Strategy</label>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-mono text-muted-foreground uppercase">strategy</label>
                     <Select value={strategy} onValueChange={setStrategy} required>
-                      <SelectTrigger className="bg-secondary/50 border-border h-10">
-                        <SelectValue placeholder="Select strategy" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {STRATEGIES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                      </SelectContent>
+                      <SelectTrigger className="bg-secondary/50 border-border h-9 font-mono text-xs"><SelectValue placeholder="select" /></SelectTrigger>
+                      <SelectContent>{STRATEGIES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Risk Level</label>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-mono text-muted-foreground uppercase">risk</label>
                     <Select value={riskLevel} onValueChange={setRiskLevel}>
-                      <SelectTrigger className="bg-secondary/50 border-border h-10">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {RISK_LEVELS.map((r) => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
-                      </SelectContent>
+                      <SelectTrigger className="bg-secondary/50 border-border h-9 font-mono text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>{RISK_LEVELS.map((r) => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Fund Amount (SOL)</label>
-                    <Input type="number" step="0.01" min="0" placeholder="0.5" value={fundAmount} onChange={(e) => setFundAmount(e.target.value)} className="bg-secondary/50 border-border h-10" />
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-mono text-muted-foreground uppercase">fund (sol)</label>
+                    <Input type="number" step="0.01" min="0" placeholder="0.5" value={fundAmount} onChange={(e) => setFundAmount(e.target.value)} className="bg-secondary/50 border-border h-9 font-mono text-xs" />
                   </div>
                 </div>
-
-                <div className="flex gap-3 pt-1">
-                  <Button type="submit" disabled={creating || !name || !strategy} className="bg-primary text-primary-foreground hover:bg-primary/90 font-semibold text-xs h-9">
-                    {creating ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Rocket className="h-3.5 w-3.5 mr-1.5" />}
-                    Deploy Agent
-                  </Button>
-                  <Button type="button" variant="ghost" onClick={() => setShowForm(false)} className="text-muted-foreground text-xs h-9">
-                    Cancel
-                  </Button>
+                <div className="flex gap-2 pt-1">
+                  <button type="submit" disabled={creating || !name || !strategy} className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-mono font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors">
+                    {creating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Rocket className="h-3 w-3" />} deploy
+                  </button>
+                  <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 rounded-lg text-xs font-mono text-muted-foreground hover:text-foreground transition-colors">cancel</button>
                 </div>
               </form>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Agents list */}
+        {/* Agent list */}
         {loading ? (
-          <div className="flex items-center justify-center py-24">
-            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="h-4 w-4 animate-spin text-primary" />
           </div>
         ) : agents.length === 0 ? (
-          <div className="text-center py-24 rounded-2xl border border-dashed border-border/40">
-            <Bot className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-base font-bold mb-1">No agents yet</h3>
-            <p className="text-sm text-muted-foreground mb-5">Deploy your first agent to start trading.</p>
-            <Button onClick={() => setShowForm(true)} className="bg-primary text-primary-foreground hover:bg-primary/90 font-semibold text-xs h-9">
-              <Plus className="h-3.5 w-3.5 mr-1.5" />
-              New Agent
-            </Button>
+          <div className="text-center py-20 rounded-xl border border-dashed border-border">
+            <Bot className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground mb-4">No agents deployed yet.</p>
+            <button onClick={() => setShowForm(true)} className="px-4 py-2 rounded-lg border border-primary/30 bg-primary/10 text-xs font-mono text-primary hover:bg-primary/20 transition-colors">
+              <Plus className="h-3 w-3 inline mr-1" /> deploy first agent
+            </button>
           </div>
         ) : (
           <div className="space-y-2">
@@ -301,59 +216,45 @@ const Dashboard = () => {
               return (
                 <motion.div
                   key={agent.id}
-                  initial={{ opacity: 0, y: 8 }}
+                  initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.04 }}
-                  className="rounded-xl border border-border/40 bg-card p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:bg-secondary/20 transition-colors"
+                  transition={{ delay: i * 0.03 }}
+                  className="rounded-xl border border-border bg-card p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:border-border/80 transition-colors"
                 >
-                  <div className="flex items-center gap-4 min-w-0">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 border border-primary/20">
-                      <Bot className="h-4 w-4 text-primary" />
-                    </div>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`h-2 w-2 rounded-full shrink-0 ${isRunning ? "bg-primary" : "bg-muted-foreground"}`} />
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-semibold truncate">{agent.name}</h3>
-                        <span className="flex items-center gap-1.5">
-                          <span className={`h-1.5 w-1.5 rounded-full ${isRunning ? "bg-success" : "bg-muted-foreground"}`} />
-                          <span className={`text-[11px] font-medium capitalize ${isRunning ? "text-success" : "text-muted-foreground"}`}>
-                            {isRunning ? "Trading" : agent.status}
-                          </span>
-                        </span>
+                        <span className="text-sm font-mono font-medium truncate">{agent.name}</span>
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">{agent.category}</span>
                       </div>
-                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-primary/5 text-primary/80 border border-primary/10">
-                          {agent.category}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground">{getRiskLabel(agent.model)}</span>
-                        <span className="text-[10px] text-muted-foreground">Funded: {getFundAmount(agent.system_prompt)}</span>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[10px] font-mono text-muted-foreground">{getRiskLabel(agent.model)}</span>
+                        <span className="text-[10px] font-mono text-muted-foreground">· {getFundAmount(agent.system_prompt)}</span>
                       </div>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-3 shrink-0">
-                    <div className="text-right mr-2">
-                      <div className={`text-sm font-bold ${pnl >= 0 ? "text-success" : "text-destructive"}`}>
-                        <TrendingUp className="h-3 w-3 inline mr-0.5" />
-                        {pnl >= 0 ? "+" : ""}{pnl.toFixed(2)} SOL
-                      </div>
-                      <p className="text-[10px] text-muted-foreground">PnL</p>
-                    </div>
+                    <span className={`text-xs font-mono font-bold ${pnl >= 0 ? "text-primary" : "text-destructive"}`}>
+                      {pnl >= 0 ? "+" : ""}{pnl.toFixed(2)} SOL
+                    </span>
 
                     {agent.status === "stopped" ? (
-                      <Button size="sm" onClick={() => updateStatus(agent.id, "running")} disabled={actingOn === agent.id} className="bg-success hover:bg-success/90 text-success-foreground font-semibold text-[11px] h-7 px-3">
-                        <Play className="h-3 w-3 mr-1" /> Start
-                      </Button>
+                      <button onClick={() => updateStatus(agent.id, "running")} disabled={actingOn === agent.id} className="p-1.5 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50">
+                        <Play className="h-3 w-3" />
+                      </button>
                     ) : (
-                      <Button size="sm" variant="outline" onClick={() => updateStatus(agent.id, "stopped")} disabled={actingOn === agent.id} className="border-border text-muted-foreground text-[11px] h-7 px-3">
-                        <Square className="h-3 w-3 mr-1" /> Stop
-                      </Button>
+                      <button onClick={() => updateStatus(agent.id, "stopped")} disabled={actingOn === agent.id} className="p-1.5 rounded-md bg-secondary text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50">
+                        <Square className="h-3 w-3" />
+                      </button>
                     )}
-                    <Button size="sm" variant="ghost" onClick={async () => { await updateStatus(agent.id, "stopped"); await updateStatus(agent.id, "running"); }} disabled={actingOn === agent.id || agent.status === "stopped"} className="text-muted-foreground h-7 w-7 p-0">
+                    <button onClick={async () => { await updateStatus(agent.id, "stopped"); await updateStatus(agent.id, "running"); }} disabled={actingOn === agent.id || agent.status === "stopped"} className="p-1.5 rounded-md bg-secondary text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50">
                       <RotateCcw className="h-3 w-3" />
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => deleteAgent(agent.id)} disabled={actingOn === agent.id} className="text-destructive hover:bg-destructive/10 h-7 w-7 p-0">
+                    </button>
+                    <button onClick={() => deleteAgent(agent.id)} disabled={actingOn === agent.id} className="p-1.5 rounded-md text-destructive/60 hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50">
                       <Trash2 className="h-3 w-3" />
-                    </Button>
+                    </button>
                   </div>
                 </motion.div>
               );

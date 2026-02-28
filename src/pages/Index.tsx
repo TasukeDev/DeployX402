@@ -1,27 +1,22 @@
 import Navbar from "@/components/Navbar";
-import TokenTicker from "@/components/TokenTicker";
 import HeroSection from "@/components/HeroSection";
-import FeaturesSection from "@/components/FeaturesSection";
-import LeaderboardSection from "@/components/LeaderboardSection";
+import WhatIsSection from "@/components/WhatIsSection";
 import HowItWorksSection from "@/components/HowItWorksSection";
-import PricingSection from "@/components/PricingSection";
-import FAQSection from "@/components/FAQSection";
+import EcosystemSection from "@/components/EcosystemSection";
 import FooterCTA from "@/components/FooterCTA";
-import StickyBottomCTA from "@/components/StickyBottomCTA";
 
 const Index = () => {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Navbar />
-      <TokenTicker />
       <HeroSection />
-      <FeaturesSection />
-      <LeaderboardSection />
+      <div className="divider-fade" />
+      <WhatIsSection />
+      <div className="divider-fade" />
       <HowItWorksSection />
-      <PricingSection />
-      <FAQSection />
+      <div className="divider-fade" />
+      <EcosystemSection />
       <FooterCTA />
-      <StickyBottomCTA />
     </div>
   );
 };
