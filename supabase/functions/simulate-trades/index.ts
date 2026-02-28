@@ -62,7 +62,6 @@ serve(async (req) => {
       const amountSol = parseFloat((Math.random() * 2 + 0.05).toFixed(4));
       const price = parseFloat((Math.random() * 0.01 + 0.0001).toFixed(6));
       const tokenAmount = parseFloat((amountSol / price).toFixed(2));
-      // PnL: buys start at 0, sells have random pnl
       const pnlSol = action === "buy" ? 0 : parseFloat(((Math.random() - 0.35) * amountSol).toFixed(4));
       const signal = SIGNALS[Math.floor(Math.random() * SIGNALS.length)];
 
@@ -83,6 +82,40 @@ serve(async (req) => {
     if (trades.length > 0) {
       const { error: insertError } = await supabase.from("trade_history").insert(trades);
       if (insertError) throw insertError;
+
+      // Update PnL snapshots per agent
+      const agentPnls: Record<string, { userId: string; pnl: number; count: number; wins: number }> = {};
+      for (const t of trades) {
+        if (!agentPnls[t.agent_id]) agentPnls[t.agent_id] = { userId: t.user_id, pnl: 0, count: 0, wins: 0 };
+        agentPnls[t.agent_id].pnl += t.pnl_sol;
+        agentPnls[t.agent_id].count += 1;
+        if (t.pnl_sol > 0) agentPnls[t.agent_id].wins += 1;
+      }
+
+      for (const [agentId, data] of Object.entries(agentPnls)) {
+        // Get latest snapshot to accumulate
+        const { data: latest } = await supabase
+          .from("pnl_snapshots")
+          .select("pnl_sol, total_trades, win_rate")
+          .eq("agent_id", agentId)
+          .order("snapshot_at", { ascending: false })
+          .limit(1)
+          .single();
+
+        const prevPnl = latest?.pnl_sol || 0;
+        const prevTrades = latest?.total_trades || 0;
+        const prevWins = prevTrades > 0 && latest?.win_rate ? Math.round(prevTrades * (latest.win_rate / 100)) : 0;
+        const newTotalTrades = prevTrades + data.count;
+        const newTotalWins = prevWins + data.wins;
+
+        await supabase.from("pnl_snapshots").insert({
+          agent_id: agentId,
+          user_id: data.userId,
+          pnl_sol: parseFloat((prevPnl + data.pnl).toFixed(4)),
+          total_trades: newTotalTrades,
+          win_rate: newTotalTrades > 0 ? parseFloat(((newTotalWins / newTotalTrades) * 100).toFixed(1)) : 0,
+        });
+      }
     }
 
     return new Response(

@@ -4,13 +4,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Bot, TrendingUp, Play, Square, Loader2,
-  Settings, BarChart3, Clock, Zap,
+  Settings, BarChart3, Clock, Zap, Wallet, Copy, ExternalLink,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, AreaChart, Area,
 } from "recharts";
+import agentHalo from "@/assets/agent-halo.png";
 
 interface AgentData {
   id: string; name: string; category: string; model: string;
@@ -29,6 +30,11 @@ interface PnlSnapshot {
   win_rate: number; snapshot_at: string;
 }
 
+interface AgentWallet {
+  public_key: string;
+  balance_sol: number;
+}
+
 const AgentDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -36,8 +42,10 @@ const AgentDetail = () => {
   const [agent, setAgent] = useState<AgentData | null>(null);
   const [trades, setTrades] = useState<Trade[]>([]);
   const [snapshots, setSnapshots] = useState<PnlSnapshot[]>([]);
+  const [wallet, setWallet] = useState<AgentWallet | null>(null);
+  const [walletLoading, setWalletLoading] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"pnl" | "trades" | "config">("pnl");
+  const [tab, setTab] = useState<"pnl" | "trades" | "config" | "wallet">("pnl");
 
   useEffect(() => {
     if (id) fetchAll();
@@ -50,6 +58,14 @@ const AgentDetail = () => {
       supabase.from("pnl_snapshots").select("*").eq("agent_id", id!).order("snapshot_at", { ascending: true }),
     ]);
 
+    // Fetch wallet separately (table may not be in generated types)
+    const walletRes = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/agent_wallets?agent_id=eq.${id}&select=public_key,balance_sol&limit=1`,
+      { headers: { apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` } }
+    );
+    const walletData = await walletRes.json();
+    if (Array.isArray(walletData) && walletData.length > 0) setWallet(walletData[0] as AgentWallet);
+
     if (agentRes.error) {
       toast({ title: "Agent not found", variant: "destructive" });
       navigate("/dashboard");
@@ -59,7 +75,6 @@ const AgentDetail = () => {
     setAgent(agentRes.data as AgentData);
     setTrades((tradesRes.data as Trade[]) || []);
 
-    // If no snapshots, generate mock data for demo
     const realSnapshots = (snapshotsRes.data as PnlSnapshot[]) || [];
     if (realSnapshots.length === 0) {
       const mockSnapshots = Array.from({ length: 14 }, (_, i) => ({
@@ -69,7 +84,6 @@ const AgentDetail = () => {
         win_rate: parseFloat((45 + Math.random() * 30).toFixed(1)),
         snapshot_at: new Date(Date.now() - (13 - i) * 86400000).toISOString(),
       }));
-      // accumulate pnl
       let cum = 0;
       mockSnapshots.forEach((s) => { cum += s.pnl_sol; s.pnl_sol = parseFloat(cum.toFixed(2)); });
       setSnapshots(mockSnapshots);
@@ -78,6 +92,21 @@ const AgentDetail = () => {
     }
 
     setLoading(false);
+  };
+
+  const generateWallet = async () => {
+    setWalletLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-wallet", {
+        body: { agent_id: id },
+      });
+      if (error) throw error;
+      setWallet({ public_key: data.public_key, balance_sol: 0 });
+      toast({ title: data.already_exists ? "Wallet loaded" : "Wallet generated!", description: `Address: ${data.public_key.slice(0, 8)}...` });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    }
+    setWalletLoading(false);
   };
 
   const getRiskLabel = (m: string) =>
@@ -172,6 +201,7 @@ const AgentDetail = () => {
           {([
             { key: "pnl", label: "PnL Chart", icon: TrendingUp },
             { key: "trades", label: "Trade History", icon: Clock },
+            { key: "wallet", label: "Wallet", icon: Wallet },
             { key: "config", label: "Strategy", icon: Settings },
           ] as const).map((t) => (
             <button
@@ -270,6 +300,79 @@ const AgentDetail = () => {
                 </div>
               ))}
             </div>
+          </motion.div>
+        )}
+
+        {tab === "wallet" && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-xl border border-border bg-card p-6 space-y-6">
+            <div className="flex items-center gap-3">
+              <img src={agentHalo} alt="" className="h-10 w-10 rounded-full object-cover" />
+              <div>
+                <h3 className="text-sm font-mono font-medium">Agent Wallet</h3>
+                <p className="text-[10px] font-mono text-muted-foreground">Dedicated Solana wallet for this agent</p>
+              </div>
+            </div>
+
+            {wallet ? (
+              <div className="space-y-4">
+                {/* Address */}
+                <div className="rounded-lg bg-secondary/50 border border-border p-4">
+                  <p className="text-[10px] font-mono text-muted-foreground uppercase mb-1">Deposit Address</p>
+                  <div className="flex items-center gap-2">
+                    <code className="text-xs font-mono text-foreground break-all flex-1">{wallet.public_key}</code>
+                    <button
+                      onClick={() => { navigator.clipboard.writeText(wallet.public_key); toast({ title: "Copied!" }); }}
+                      className="p-1.5 rounded-md bg-secondary text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                    >
+                      <Copy className="h-3 w-3" />
+                    </button>
+                    <a
+                      href={`https://solscan.io/account/${wallet.public_key}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-1.5 rounded-md bg-secondary text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                </div>
+
+                {/* Balance */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-lg bg-secondary/50 border border-border p-4">
+                    <p className="text-[10px] font-mono text-muted-foreground uppercase mb-1">Balance</p>
+                    <p className="text-lg font-mono font-bold text-primary">{wallet.balance_sol.toFixed(4)} SOL</p>
+                  </div>
+                  <div className="rounded-lg bg-secondary/50 border border-border p-4">
+                    <p className="text-[10px] font-mono text-muted-foreground uppercase mb-1">Status</p>
+                    <p className="text-lg font-mono font-bold text-foreground">{agent.status === "running" ? "Trading" : "Idle"}</p>
+                  </div>
+                </div>
+
+                {/* Instructions */}
+                <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
+                  <p className="text-xs font-mono text-primary font-medium mb-1">How to fund your agent</p>
+                  <ol className="text-[10px] font-mono text-muted-foreground space-y-1 list-decimal list-inside">
+                    <li>Copy the deposit address above</li>
+                    <li>Send SOL from your wallet (Phantom, Solflare, etc.)</li>
+                    <li>Start the agent — it will begin trading automatically</li>
+                    <li>Withdraw anytime by stopping the agent</li>
+                  </ol>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <Wallet className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+                <p className="text-sm font-mono text-muted-foreground mb-4">No wallet generated yet</p>
+                <button
+                  onClick={generateWallet}
+                  disabled={walletLoading}
+                  className="px-6 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-mono hover:bg-primary/90 transition-colors disabled:opacity-50"
+                >
+                  {walletLoading ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Generate Wallet"}
+                </button>
+              </div>
+            )}
           </motion.div>
         )}
       </div>
