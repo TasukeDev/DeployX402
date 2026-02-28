@@ -14,9 +14,7 @@ const FooterCTA = () => {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
         >
-          <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20 mb-6">
-            <Zap className="h-6 w-6 text-primary" />
-          </div>
+          <img src="/logo.png" alt="LaunchPad logo" className="h-12 w-12 rounded-2xl mb-6" />
           <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-4">
             Ready to launch your
             <br />
