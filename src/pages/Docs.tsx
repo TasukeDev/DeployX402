@@ -1,186 +1,501 @@
 import { useState, useMemo } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import {
-  ArrowLeft, Search, Book, Rocket, Code2, Terminal, Webhook,
-  Braces, Shield, Layers, Cpu, ChevronRight, Copy, Check, Globe, Key
+  ArrowLeft, Search, Rocket, Code2, Terminal, Webhook,
+  Braces, Shield, Layers, Cpu, ChevronRight, Copy, Check,
+  Globe, Key, Bot, Wallet, BarChart3, Zap, Link2, Database
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Highlight, themes } from "prism-react-renderer";
+
+/* ── Types ── */
+type DocContent =
+  | { type: "text"; value: string }
+  | { type: "heading"; value: string }
+  | { type: "code"; lang: string; value: string }
+  | { type: "list"; items: string[] }
+  | { type: "cards"; cards: { icon: typeof Bot; title: string; desc: string }[] }
+  | { type: "steps"; steps: { title: string; desc: string }[] };
 
 type DocSection = {
   id: string;
-  icon: typeof Book;
+  icon: typeof Bot;
   title: string;
   content: DocContent[];
 };
 
-type DocContent = {
-  type: "text" | "code" | "heading" | "list";
-  lang?: string;
-  value: string;
-  items?: string[];
+type SidebarGroup = {
+  label: string;
+  items: DocSection[];
 };
 
-const sections: DocSection[] = [
+/* ── Documentation content ── */
+const groups: SidebarGroup[] = [
   {
-    id: "getting-started",
-    icon: Rocket,
-    title: "Getting Started",
-    content: [
-      { type: "text", value: "Get up and running with LaunchPad in under 5 minutes. Create your first AI agent, configure channels, and deploy — all from a single API call or the dashboard." },
-      { type: "heading", value: "Install the SDK" },
-      { type: "code", lang: "bash", value: "npm install @launchpad/sdk\n# or\npip install launchpad-sdk" },
-      { type: "heading", value: "Initialize the Client" },
-      { type: "code", lang: "typescript", value: 'import { LaunchPad } from "@launchpad/sdk";\n\nconst lp = new LaunchPad({\n  apiKey: process.env.LAUNCHPAD_API_KEY,\n});' },
-      { type: "heading", value: "Create Your First Agent" },
-      { type: "code", lang: "typescript", value: 'const agent = await lp.agents.create({\n  name: "my-first-agent",\n  model: "gpt-4o",\n  system_prompt: "You are a helpful assistant.",\n  channels: ["webchat"],\n});\n\nconsole.log("Live at:", agent.url);' },
+    label: "Getting Started",
+    items: [
+      {
+        id: "overview",
+        icon: Layers,
+        title: "Overview",
+        content: [
+          {
+            type: "text",
+            value: "solagent is an autonomous AI trading agent platform on Solana. Create AI agents with unique personalities, equip them with autonomous trading capabilities, and deploy them on-chain with their own custodial wallets.",
+          },
+          {
+            type: "cards",
+            cards: [
+              { icon: Bot, title: "Autonomous AI Agents", desc: "Create agents with unique personalities, trading styles, and behaviors. Agents operate autonomously using real-time market data." },
+              { icon: Wallet, title: "Custodial Solana Wallets", desc: "Each agent gets its own Solana wallet with encrypted key storage. Agents sign transactions autonomously." },
+              { icon: Shield, title: "Trust & Verification", desc: "Agents verify data sources, validate endpoints, and ensure reliable execution before committing capital." },
+              { icon: Globe, title: "On-Chain Deployment", desc: "Launch your agent as a token on PumpFun. Agent identity and trading history become verifiable on-chain." },
+            ],
+          },
+          { type: "heading", value: "Key Capabilities" },
+          {
+            type: "list",
+            items: [
+              "Develop unique personalities — Define trading styles, voice patterns, and behavioral traits",
+              "Execute trades autonomously — Agents analyze market data from Pump.fun and DexScreener, then execute buy/sell orders",
+              "Learn from interactions — Agents remember conversations and evolve their trading strategies",
+              "Deploy on-chain — Launch as tokens with IPFS metadata and PumpFun integration",
+              "Verified execution — Agents verify data from multiple sources before committing funds",
+            ],
+          },
+        ],
+      },
+      {
+        id: "quickstart",
+        icon: Rocket,
+        title: "Quickstart",
+        content: [
+          { type: "text", value: "Get your first AI trading agent running in under 3 minutes." },
+          {
+            type: "steps",
+            steps: [
+              { title: "Create an Account", desc: "Sign up with email or connect your Phantom/Jupiter wallet. A custodial Solana wallet is automatically generated for your agent." },
+              { title: "Create Your Agent", desc: "Choose a trading preset — Scalper, Swing Trader, Long-term, or Degen — and customize your agent's personality." },
+              { title: "Chat & Train", desc: "Start chatting with your agent. It learns your speech patterns and trading preferences through natural conversation." },
+              { title: "Fund & Trade", desc: "Send SOL to your agent's wallet and enable autonomous trading. Set budget limits and risk parameters." },
+              { title: "Launch On-Chain", desc: "Deploy your agent as a token on PumpFun. Your agent becomes a tradeable on-chain identity." },
+            ],
+          },
+        ],
+      },
+      {
+        id: "what-you-can-build",
+        icon: Braces,
+        title: "What You Can Build",
+        content: [
+          { type: "text", value: "solagent agents can be configured for various trading strategies, each with distinct risk profiles and execution patterns." },
+          {
+            type: "cards",
+            cards: [
+              { icon: Zap, title: "Scalping Bot", desc: "Executes rapid trades on small price movements. Monitors real-time data, identifies momentum plays, enters/exits within minutes." },
+              { icon: BarChart3, title: "Swing Trader", desc: "Holds positions for days to weeks. Analyzes DexScreener data for volume trends, market cap changes, and liquidity depth." },
+              { icon: Rocket, title: "Token Sniper", desc: "Monitors new token launches on Pump.fun and executes instant trades on promising opportunities." },
+              { icon: Shield, title: "Diamond Hands HODLER", desc: "Long-term conviction holder focused on fundamentals. Accumulates positions in projects with real utility." },
+            ],
+          },
+        ],
+      },
     ],
   },
   {
-    id: "authentication",
-    icon: Key,
-    title: "Authentication",
-    content: [
-      { type: "text", value: "All API requests require a valid API key passed via the Authorization header. Keys are scoped to your workspace and can be rotated at any time." },
-      { type: "heading", value: "API Key Format" },
-      { type: "code", lang: "bash", value: 'Authorization: Bearer lp_sk_live_...' },
-      { type: "heading", value: "Key Types" },
-      { type: "list", value: "", items: [
-        "lp_sk_live_* — Production keys with full access",
-        "lp_sk_test_* — Sandbox keys for development",
-        "lp_pk_* — Publishable keys for client-side usage",
-      ]},
-      { type: "heading", value: "Rate Limits" },
-      { type: "text", value: "Free tier: 100 req/min. Pro: 1,000 req/min. Enterprise: custom. Rate limit headers are included in every response." },
+    label: "Architecture",
+    items: [
+      {
+        id: "agent-architecture",
+        icon: Cpu,
+        title: "Agent Architecture",
+        content: [
+          { type: "text", value: "solagent agents are autonomous programs that combine personality, market analysis, and on-chain execution into a single entity." },
+          { type: "heading", value: "Agent Lifecycle" },
+          {
+            type: "steps",
+            steps: [
+              { title: "Creation", desc: "Agent is created with name, personality traits, trading style, and custom instructions. A custodial Solana wallet is generated." },
+              { title: "Training", desc: "Users chat with the agent, shaping its personality. The agent stores speech patterns and adapts its communication style." },
+              { title: "Autonomous Operation", desc: "Once funded and enabled, the agent runs on a 3-minute cycle — pulling market data, evaluating opportunities, and executing trades." },
+              { title: "On-Chain Launch", desc: "Agent metadata is uploaded to IPFS and a token is created on PumpFun. The agent becomes a tradeable on-chain identity." },
+            ],
+          },
+          { type: "heading", value: "Core Components" },
+          {
+            type: "code",
+            lang: "typescript",
+            value: `Agent {
+  identity: {
+    name, handle, bio, traits[],
+    voiceStyle, tradingStyle, instructions
+  },
+  wallet: {
+    publicKey, encryptedPrivateKey,
+    balance, positions[]
+  },
+  memory: {
+    conversationHistory[],
+    speechPatterns,
+    personalityAdaptations[],
+    tradingPreferences
+  },
+  trading: {
+    style: "scalper" | "swing" | "longterm" | "degen",
+    autonomousEnabled: boolean,
+    budgetLimit: number,
+    maxTradeSize: number,
+    stopLoss: number,
+    activeTrades[]
+  }
+}`,
+          },
+        ],
+      },
+      {
+        id: "trust-verification",
+        icon: Shield,
+        title: "Trust & Verification",
+        content: [
+          { type: "text", value: "Before executing any trade, solagent agents cross-reference data from multiple sources to ensure accuracy." },
+          {
+            type: "cards",
+            cards: [
+              { icon: Zap, title: "Pump.fun API", desc: "Real-time token data including trending tokens, recent launches, and individual token details." },
+              { icon: BarChart3, title: "DexScreener API", desc: "Market data for any Solana token — price, volume, market cap, liquidity, and historical charts." },
+              { icon: Database, title: "Solana RPC", desc: "Direct on-chain data for wallet balances, transaction confirmation, and token account verification." },
+            ],
+          },
+          { type: "heading", value: "Verification Flow" },
+          {
+            type: "list",
+            items: [
+              "Pull token data from Pump.fun API",
+              "Cross-reference with DexScreener price & volume",
+              "Validate on-chain state via Solana RPC",
+              "Compare signals across sources before executing",
+              "Reject trades with conflicting or stale data",
+            ],
+          },
+        ],
+      },
+      {
+        id: "autonomous-execution",
+        icon: Zap,
+        title: "Autonomous Execution",
+        content: [
+          { type: "text", value: "Autonomous execution is the core differentiator. Agents don't just chat — they act independently on-chain." },
+          { type: "heading", value: "Trading Cycle" },
+          {
+            type: "code",
+            lang: "typescript",
+            value: `// Every 3 minutes, the agent:
+async function tradingCycle(agent: Agent) {
+  // 1. Pull market data
+  const tokens = await pumpfun.getTrending();
+  const enriched = await dexscreener.enrich(tokens);
+
+  // 2. Evaluate against strategy
+  const opportunities = agent.evaluate(enriched);
+
+  // 3. Execute within budget
+  for (const opp of opportunities) {
+    if (opp.score > agent.threshold) {
+      await agent.wallet.executeTrade(opp);
+    }
+  }
+}`,
+          },
+          { type: "heading", value: "Risk Controls" },
+          {
+            type: "list",
+            items: [
+              "Budget limits — Maximum SOL allocated per trade and per day",
+              "Stop losses — Automatic exit when position drops below threshold",
+              "Position sizing — Maximum percentage of portfolio per trade",
+              "Cooldown periods — Minimum time between trades to prevent overtrading",
+            ],
+          },
+        ],
+      },
     ],
   },
   {
-    id: "agents-api",
-    icon: Cpu,
-    title: "Agents API",
-    content: [
-      { type: "text", value: "The Agents API is the core of LaunchPad. Create, configure, and manage AI agents programmatically." },
-      { type: "heading", value: "Create Agent" },
-      { type: "code", lang: "bash", value: 'POST /v1/agents\n\n{\n  "name": "support-bot",\n  "model": "gpt-4o",\n  "system_prompt": "You help users with billing.",\n  "channels": ["telegram", "discord"],\n  "tools": ["search", "memory", "email"],\n  "risk_mode": "safe"\n}' },
-      { type: "heading", value: "List Agents" },
-      { type: "code", lang: "bash", value: "GET /v1/agents?status=active&limit=20" },
-      { type: "heading", value: "Update Agent" },
-      { type: "code", lang: "bash", value: 'PATCH /v1/agents/:id\n\n{\n  "model": "claude-3.5-sonnet",\n  "tools": ["search", "memory", "browser"]\n}' },
-      { type: "heading", value: "Delete Agent" },
-      { type: "code", lang: "bash", value: "DELETE /v1/agents/:id" },
+    label: "Agents",
+    items: [
+      {
+        id: "character-interface",
+        icon: Bot,
+        title: "Character Interface",
+        content: [
+          { type: "text", value: "Every agent has a distinct personality defined by its character interface. This shapes how the agent communicates, analyzes markets, and makes trading decisions." },
+          { type: "heading", value: "Character Definition" },
+          {
+            type: "code",
+            lang: "typescript",
+            value: `interface AgentCharacter {
+  name: string;
+  handle: string;
+  bio: string;
+  traits: string[];
+  voiceStyle: "professional" | "casual" | "degen" | "analytical";
+  tradingStyle: "scalper" | "swing" | "longterm" | "degen";
+  customInstructions: string;
+}`,
+          },
+          { type: "heading", value: "Personality Traits" },
+          {
+            type: "list",
+            items: [
+              "Traits influence market analysis — a 'degen' agent weights moonshot potential higher",
+              "Voice style affects how the agent communicates trade decisions",
+              "Trading style determines position sizing, hold duration, and risk tolerance",
+              "Custom instructions override defaults for specialized behavior",
+            ],
+          },
+        ],
+      },
+      {
+        id: "trading-engine",
+        icon: BarChart3,
+        title: "Trading Engine",
+        content: [
+          { type: "text", value: "The trading engine is the execution layer of every solagent agent. It connects market data analysis to on-chain trade execution via Jupiter and Raydium." },
+          { type: "heading", value: "Supported DEXs" },
+          {
+            type: "list",
+            items: [
+              "Jupiter — Primary swap aggregator for best price execution",
+              "Raydium — AMM pools for direct liquidity access",
+              "Pump.fun — New token launch trading via PumpPortal API",
+            ],
+          },
+          { type: "heading", value: "Trade Execution" },
+          {
+            type: "code",
+            lang: "typescript",
+            value: `// Execute a buy via Jupiter
+const tx = await jupiter.swap({
+  inputMint: "So11111111111111111111111111111111111111112", // SOL
+  outputMint: tokenAddress,
+  amount: amountInLamports,
+  slippage: agent.config.slippage,
+});
+
+await agent.wallet.signAndSend(tx);`,
+          },
+        ],
+      },
+      {
+        id: "agent-network",
+        icon: Link2,
+        title: "Agent Network",
+        content: [
+          { type: "text", value: "The Agent Network is a marketplace where you can discover, interact with, and copy-trade public agents. Every agent in the network exposes its trading history and performance metrics." },
+          { type: "heading", value: "Network Features" },
+          {
+            type: "list",
+            items: [
+              "Browse and search agents by trading style, PnL, and win rate",
+              "Chat with any public agent to understand its strategy",
+              "Copy-trade — mirror an agent's trades in your own wallet",
+              "View real-time activity feed of trades across the network",
+              "Performance leaderboards with cumulative PnL charts",
+            ],
+          },
+        ],
+      },
     ],
   },
   {
-    id: "channels",
-    icon: Globe,
-    title: "Channels",
-    content: [
-      { type: "text", value: "Connect your agent to 23+ messaging platforms. Each channel requires minimal configuration — usually just a bot token or webhook URL." },
-      { type: "heading", value: "Supported Channels" },
-      { type: "list", value: "", items: [
-        "Telegram — Bot API token",
-        "Discord — Bot token + guild ID",
-        "WhatsApp — Business API credentials",
-        "Slack — App manifest + OAuth",
-        "Signal, Matrix, Teams, IRC, LINE, Google Chat",
-        "WebChat — Embeddable widget, zero config",
-      ]},
-      { type: "heading", value: "Connect a Channel" },
-      { type: "code", lang: "typescript", value: 'await lp.channels.connect(agent.id, {\n  type: "telegram",\n  config: {\n    bot_token: process.env.TELEGRAM_BOT_TOKEN,\n  },\n});' },
+    label: "Development",
+    items: [
+      {
+        id: "rest-api",
+        icon: Code2,
+        title: "REST API",
+        content: [
+          { type: "text", value: "The solagent REST API provides programmatic access to agent creation, management, and trading operations." },
+          { type: "heading", value: "Authentication" },
+          {
+            type: "code",
+            lang: "bash",
+            value: `Authorization: Bearer sol_sk_live_...`,
+          },
+          { type: "heading", value: "Endpoints" },
+          {
+            type: "code",
+            lang: "bash",
+            value: `POST   /v1/agents              # Create agent
+GET    /v1/agents              # List agents
+GET    /v1/agents/:id          # Get agent details
+PATCH  /v1/agents/:id          # Update agent
+DELETE /v1/agents/:id          # Delete agent
+POST   /v1/agents/:id/trade    # Execute trade
+GET    /v1/agents/:id/trades   # Trade history
+GET    /v1/agents/:id/pnl      # PnL snapshots`,
+          },
+        ],
+      },
+      {
+        id: "cli-reference",
+        icon: Terminal,
+        title: "CLI Reference",
+        content: [
+          { type: "text", value: "The solagent CLI lets you manage everything from your terminal." },
+          { type: "heading", value: "Installation" },
+          { type: "code", lang: "bash", value: "npm install -g @solagent/cli\nsolagent auth login" },
+          { type: "heading", value: "Common Commands" },
+          {
+            type: "code",
+            lang: "bash",
+            value: `# Create a new agent
+solagent agent create --name "sniper-bot" --style degen
+
+# Deploy to trading
+solagent deploy --agent sniper-bot --budget 1.5
+
+# View live logs
+solagent logs --agent sniper-bot --follow
+
+# List all agents
+solagent agent list
+
+# Check agent PnL
+solagent agent pnl sniper-bot`,
+          },
+        ],
+      },
+      {
+        id: "webhooks",
+        icon: Webhook,
+        title: "Webhooks",
+        content: [
+          { type: "text", value: "Receive real-time notifications for events in your agents. Webhooks are signed with HMAC-SHA256 for security." },
+          { type: "heading", value: "Available Events" },
+          {
+            type: "list",
+            items: [
+              "agent.trade — Trade executed (buy or sell)",
+              "agent.pnl — PnL snapshot updated",
+              "agent.error — Runtime error in agent",
+              "agent.status — Agent status change",
+              "agent.launch — Token launched on-chain",
+            ],
+          },
+          { type: "heading", value: "Register a Webhook" },
+          {
+            type: "code",
+            lang: "typescript",
+            value: `await solagent.webhooks.create({
+  url: "https://your-app.com/webhooks/solagent",
+  events: ["agent.trade", "agent.error"],
+  secret: "whsec_...",
+});`,
+          },
+        ],
+      },
     ],
   },
   {
-    id: "tools",
-    icon: Braces,
-    title: "Tools & Functions",
-    content: [
-      { type: "text", value: "Tools give your agent superpowers. Built-in tools handle common tasks; custom tools let you connect any API." },
-      { type: "heading", value: "Built-in Tools" },
-      { type: "list", value: "", items: [
-        "search — Web search via multiple providers",
-        "browser — Fetch pages, extract content, screenshots",
-        "memory — Persistent key-value store per agent",
-        "email — Send transactional emails with templates",
-        "code_exec — Sandboxed shell execution",
-        "file_ops — Read, write, patch files in workspace",
-      ]},
-      { type: "heading", value: "Custom Tools" },
-      { type: "code", lang: "typescript", value: 'await lp.tools.register(agent.id, {\n  name: "get_weather",\n  description: "Get current weather for a city",\n  parameters: {\n    type: "object",\n    properties: {\n      city: { type: "string" },\n    },\n  },\n  handler: "https://api.example.com/weather",\n});' },
-    ],
-  },
-  {
-    id: "webhooks",
-    icon: Webhook,
-    title: "Webhooks",
-    content: [
-      { type: "text", value: "Receive real-time notifications for events in your agents. Webhooks are signed with HMAC-SHA256 for security." },
-      { type: "heading", value: "Available Events" },
-      { type: "list", value: "", items: [
-        "agent.message — New message sent or received",
-        "agent.error — Runtime error in agent",
-        "agent.status — Agent status change (active, paused, etc.)",
-        "agent.deploy — Deployment completed",
-        "channel.connected — Channel successfully linked",
-      ]},
-      { type: "heading", value: "Register a Webhook" },
-      { type: "code", lang: "typescript", value: 'await lp.webhooks.create({\n  url: "https://your-app.com/webhooks/launchpad",\n  events: ["agent.message", "agent.error"],\n  secret: "whsec_...",\n});' },
-    ],
-  },
-  {
-    id: "cli",
-    icon: Terminal,
-    title: "CLI Reference",
-    content: [
-      { type: "text", value: "The LaunchPad CLI lets you manage everything from your terminal. Install globally and authenticate once." },
-      { type: "heading", value: "Installation" },
-      { type: "code", lang: "bash", value: "npm install -g @launchpad/cli\nlaunchpad auth login" },
-      { type: "heading", value: "Common Commands" },
-      { type: "code", lang: "bash", value: '# Create a new agent\nlaunchpad agent create --name "my-bot" --model gpt-4o\n\n# Deploy to channels\nlaunchpad deploy --agent my-bot --channels telegram,discord\n\n# View live logs\nlaunchpad logs --agent my-bot --follow\n\n# List all agents\nlaunchpad agent list\n\n# Check agent status\nlaunchpad agent status my-bot' },
-    ],
-  },
-  {
-    id: "security",
-    icon: Shield,
-    title: "Security",
-    content: [
-      { type: "text", value: "Security is built into every layer of LaunchPad. Your data and API keys are protected with industry-standard practices." },
-      { type: "heading", value: "Key Principles" },
-      { type: "list", value: "", items: [
-        "AES-256 encryption at rest for all secrets and API keys",
-        "TLS 1.3 for all data in transit",
-        "SOC 2 Type II compliant infrastructure",
-        "RBAC with workspace-level permissions",
-        "Audit logs for all API key and agent operations",
-        "Risk modes (safe, moderate, dangerous) for agent actions",
-      ]},
-      { type: "heading", value: "Risk Modes" },
-      { type: "text", value: "Control what your agent can do. 'Safe' blocks destructive operations. 'Moderate' requires confirmation. 'Dangerous' allows all tool calls — use only in trusted environments." },
+    label: "Solana",
+    items: [
+      {
+        id: "solana-integration",
+        icon: Globe,
+        title: "Solana Integration",
+        content: [
+          { type: "text", value: "solagent connects directly to Solana mainnet for wallet management, transaction signing, and on-chain verification." },
+          { type: "heading", value: "Wallet Architecture" },
+          {
+            type: "code",
+            lang: "typescript",
+            value: `// Each agent has a custodial wallet
+const wallet = await solagent.wallets.create({
+  agentId: agent.id,
+  network: "mainnet-beta",
+});
+
+// Fund the wallet
+console.log("Send SOL to:", wallet.publicKey);
+
+// Check balance
+const balance = await wallet.getBalance();`,
+          },
+          { type: "heading", value: "Supported Operations" },
+          {
+            type: "list",
+            items: [
+              "SPL token swaps via Jupiter aggregator",
+              "Direct AMM trading via Raydium pools",
+              "New token launch sniping via PumpPortal",
+              "Token creation and deployment on PumpFun",
+              "Fee distribution to token holders",
+            ],
+          },
+        ],
+      },
+      {
+        id: "token-launch",
+        icon: Rocket,
+        title: "Token Launch",
+        content: [
+          { type: "text", value: "Launch your agent as a tradeable token on PumpFun. The agent's metadata becomes its on-chain identity." },
+          { type: "heading", value: "Launch Flow" },
+          {
+            type: "steps",
+            steps: [
+              { title: "Upload Metadata", desc: "Agent name, bio, and avatar are uploaded to IPFS. This creates an immutable record of the agent's identity." },
+              { title: "Create Token", desc: "Token is created on Solana mainnet via PumpFun. The agent's wallet becomes the deployer." },
+              { title: "Configure Fees", desc: "Set up fee distribution between buybacks, holder rewards, and agent trading capital." },
+            ],
+          },
+          { type: "heading", value: "Fee Distribution" },
+          {
+            type: "code",
+            lang: "typescript",
+            value: `feeDistribution: {
+  buybackPct: 30,       // Token buybacks
+  holderRewardsPct: 40, // Distributed to holders
+  agentFundingPct: 30,  // Agent's trading capital
+}`,
+          },
+        ],
+      },
     ],
   },
 ];
 
+/* ── Flatten for lookup ── */
+const allSections = groups.flatMap((g) => g.items);
+
+/* ── Component ── */
 const Docs = () => {
   const navigate = useNavigate();
-  const [activeSection, setActiveSection] = useState("getting-started");
+  const [activeSection, setActiveSection] = useState("overview");
   const [searchQuery, setSearchQuery] = useState("");
   const [copiedBlock, setCopiedBlock] = useState<string | null>(null);
 
-  const filteredSections = useMemo(() => {
-    if (!searchQuery.trim()) return sections;
+  const filteredGroups = useMemo(() => {
+    if (!searchQuery.trim()) return groups;
     const q = searchQuery.toLowerCase();
-    return sections.filter(
-      (s) =>
-        s.title.toLowerCase().includes(q) ||
-        s.content.some(
-          (c) =>
-            c.value.toLowerCase().includes(q) ||
-            c.items?.some((item) => item.toLowerCase().includes(q))
-        )
-    );
+    return groups
+      .map((g) => ({
+        ...g,
+        items: g.items.filter(
+          (s) =>
+            s.title.toLowerCase().includes(q) ||
+            s.content.some((c) => {
+              if ("value" in c) return c.value.toLowerCase().includes(q);
+              if ("items" in c) return c.items?.some((i) => i.toLowerCase().includes(q));
+              return false;
+            })
+        ),
+      }))
+      .filter((g) => g.items.length > 0);
   }, [searchQuery]);
 
-  const currentSection = sections.find((s) => s.id === activeSection) || sections[0];
+  const currentSection = allSections.find((s) => s.id === activeSection) || allSections[0];
 
   const copyCode = (code: string, id: string) => {
     navigator.clipboard.writeText(code);
@@ -188,66 +503,171 @@ const Docs = () => {
     setTimeout(() => setCopiedBlock(null), 2000);
   };
 
+  const renderContent = (block: DocContent, i: number) => {
+    if (block.type === "text") {
+      return <p key={i} className="text-sm text-muted-foreground leading-relaxed">{block.value}</p>;
+    }
+    if (block.type === "heading") {
+      return (
+        <h3 key={i} className="text-sm font-semibold text-foreground pt-6 pb-1 flex items-center gap-2">
+          <ChevronRight className="h-3 w-3 text-primary" />
+          {block.value}
+        </h3>
+      );
+    }
+    if (block.type === "list") {
+      return (
+        <ul key={i} className="space-y-2 pl-1">
+          {block.items.map((item, j) => (
+            <li key={j} className="text-sm text-muted-foreground flex items-start gap-2.5">
+              <ChevronRight className="h-3 w-3 text-primary mt-1 shrink-0" />
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
+      );
+    }
+    if (block.type === "cards") {
+      return (
+        <div key={i} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {block.cards.map((card, j) => (
+            <div key={j} className="rounded-xl border border-border/60 bg-card/40 p-4 space-y-2">
+              <card.icon className="h-4 w-4 text-primary" />
+              <h4 className="text-sm font-semibold text-foreground">{card.title}</h4>
+              <p className="text-xs text-muted-foreground leading-relaxed">{card.desc}</p>
+            </div>
+          ))}
+        </div>
+      );
+    }
+    if (block.type === "steps") {
+      return (
+        <div key={i} className="space-y-0 pl-1">
+          {block.steps.map((step, j) => (
+            <div key={j} className="flex gap-4 pb-6 last:pb-0">
+              <div className="flex flex-col items-center">
+                <div className="h-6 w-6 rounded-full bg-primary/15 border border-primary/25 flex items-center justify-center text-[10px] font-mono text-primary font-bold shrink-0">
+                  {j + 1}
+                </div>
+                {j < block.steps.length - 1 && <div className="w-px flex-1 bg-border/50 mt-1" />}
+              </div>
+              <div className="pt-0.5">
+                <h4 className="text-sm font-semibold text-foreground">{step.title}</h4>
+                <p className="text-xs text-muted-foreground leading-relaxed mt-1">{step.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+    if (block.type === "code") {
+      const blockId = `${currentSection.id}-${i}`;
+      return (
+        <div key={i} className="terminal-window rounded-xl overflow-hidden group relative">
+          <div className="flex items-center justify-between px-4 py-2 border-b border-border/50">
+            <div className="flex items-center gap-2">
+              <div className="h-2 w-2 rounded-full terminal-dot-red" />
+              <div className="h-2 w-2 rounded-full terminal-dot-yellow" />
+              <div className="h-2 w-2 rounded-full terminal-dot-green" />
+              <span className="text-[10px] text-muted-foreground font-mono ml-2">{block.lang}</span>
+            </div>
+            <button
+              onClick={() => copyCode(block.value, blockId)}
+              className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+            >
+              {copiedBlock === blockId ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5" />}
+            </button>
+          </div>
+          <Highlight
+            theme={themes.nightOwl}
+            code={block.value}
+            language={block.lang === "bash" ? "bash" : "typescript"}
+          >
+            {({ tokens, getLineProps, getTokenProps }) => (
+              <pre className="p-4 text-[11px] leading-relaxed font-mono overflow-x-auto bg-transparent">
+                {tokens.map((line, li) => (
+                  <div key={li} {...getLineProps({ line })}>
+                    {line.map((token, ti) => (
+                      <span key={ti} {...getTokenProps({ token })} />
+                    ))}
+                  </div>
+                ))}
+              </pre>
+            )}
+          </Highlight>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Top bar */}
-      <header className="fixed top-0 left-0 right-0 z-50 h-14 border-b border-border/50 bg-background/80 backdrop-blur-2xl flex items-center px-6">
-        <Button
-          variant="ghost"
-          size="sm"
+      <header className="fixed top-0 left-0 right-0 z-50 h-12 border-b border-border/40 bg-background/80 backdrop-blur-2xl flex items-center px-5">
+        <button
           onClick={() => navigate("/")}
-          className="text-muted-foreground hover:text-foreground -ml-2"
+          className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5 text-xs font-mono"
         >
-          <ArrowLeft className="h-4 w-4 mr-1.5" />
-          Back
-        </Button>
-        <div className="flex items-center gap-2 ml-4">
-          <img src="/logo.png" alt="LaunchPad" className="h-6 w-6 rounded" />
-          <span className="font-semibold text-sm tracking-tight">LaunchPad Docs</span>
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Back to Home
+        </button>
+        <div className="flex items-center gap-2 ml-6">
+          <span className="text-primary font-mono text-xs">◆</span>
+          <span className="text-sm font-mono font-medium text-foreground tracking-tight">solagent</span>
+          <span className="text-sm font-mono text-muted-foreground">Docs</span>
         </div>
-        <div className="ml-auto relative max-w-xs w-full hidden sm:block">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+        <div className="ml-auto relative max-w-[200px] w-full hidden sm:block">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Search docs..."
+            placeholder="Search..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-8 pl-9 pr-3 text-xs rounded-lg border border-border/60 bg-card/60 text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/40 transition-colors"
+            className="w-full h-7 pl-7 pr-3 text-[11px] rounded-md border border-border/50 bg-card/40 text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/40 transition-colors font-mono"
           />
         </div>
       </header>
 
-      <div className="flex pt-14">
+      <div className="flex pt-12">
         {/* Sidebar */}
-        <aside className="hidden md:block w-64 fixed top-14 bottom-0 left-0 border-r border-border/40 bg-background/60 backdrop-blur-xl overflow-y-auto">
-          <div className="p-4 space-y-0.5">
-            {filteredSections.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => setActiveSection(s.id)}
-                className={`flex items-center gap-2.5 w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
-                  activeSection === s.id
-                    ? "bg-primary/10 text-primary font-medium"
-                    : "text-muted-foreground hover:text-foreground hover:bg-card/60"
-                }`}
-              >
-                <s.icon className="h-3.5 w-3.5 shrink-0" />
-                {s.title}
-              </button>
+        <aside className="hidden md:block w-56 fixed top-12 bottom-0 left-0 border-r border-border/30 bg-background overflow-y-auto">
+          <nav className="p-3 space-y-5">
+            {filteredGroups.map((group) => (
+              <div key={group.label}>
+                <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-muted-foreground px-2.5 mb-1.5">
+                  {group.label}
+                </div>
+                <div className="space-y-0.5">
+                  {group.items.map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => setActiveSection(s.id)}
+                      className={`flex items-center gap-2 w-full text-left px-2.5 py-1.5 rounded-md text-xs font-mono transition-all ${
+                        activeSection === s.id
+                          ? "text-foreground bg-card/60"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {s.title}
+                    </button>
+                  ))}
+                </div>
+              </div>
             ))}
-          </div>
+          </nav>
         </aside>
 
         {/* Mobile nav */}
-        <div className="md:hidden fixed top-14 left-0 right-0 z-40 border-b border-border/40 bg-background/80 backdrop-blur-xl overflow-x-auto">
+        <div className="md:hidden fixed top-12 left-0 right-0 z-40 border-b border-border/30 bg-background/80 backdrop-blur-xl overflow-x-auto">
           <div className="flex gap-1 p-2 px-4">
-            {filteredSections.map((s) => (
+            {allSections.map((s) => (
               <button
                 key={s.id}
                 onClick={() => setActiveSection(s.id)}
-                className={`whitespace-nowrap px-3 py-1.5 rounded-md text-xs transition-all ${
+                className={`whitespace-nowrap px-2.5 py-1 rounded-md text-[11px] font-mono transition-all ${
                   activeSection === s.id
-                    ? "bg-primary/10 text-primary font-medium"
+                    ? "bg-card/60 text-foreground"
                     : "text-muted-foreground"
                 }`}
               >
@@ -258,122 +678,52 @@ const Docs = () => {
         </div>
 
         {/* Main content */}
-        <main className="flex-1 md:ml-64 min-h-screen">
-          <div className="max-w-3xl mx-auto px-6 py-12 md:py-16 mt-10 md:mt-0">
-            <motion.div
-              key={currentSection.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.25 }}
-            >
-              {/* Section header */}
-              <div className="flex items-center gap-3 mb-8">
-                <div className="h-10 w-10 rounded-xl bg-primary/10 border border-primary/15 flex items-center justify-center">
-                  <currentSection.icon className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-extrabold tracking-tight">{currentSection.title}</h1>
-                </div>
-              </div>
+        <main className="flex-1 md:ml-56 min-h-screen">
+          <div className="max-w-2xl mx-auto px-6 py-12 md:py-14 mt-10 md:mt-0">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentSection.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2 }}
+              >
+                {/* Section title */}
+                <h1 className="text-xl font-bold tracking-tight mb-6">{currentSection.title}</h1>
 
-              {/* Content */}
-              <div className="space-y-6">
-                {currentSection.content.map((block, i) => {
-                  if (block.type === "text") {
-                    return (
-                      <p key={i} className="text-sm text-muted-foreground leading-relaxed">
-                        {block.value}
-                      </p>
-                    );
-                  }
-                  if (block.type === "heading") {
-                    return (
-                      <h2 key={i} className="text-base font-bold text-foreground pt-4 flex items-center gap-2">
-                        <ChevronRight className="h-3.5 w-3.5 text-primary" />
-                        {block.value}
-                      </h2>
-                    );
-                  }
-                  if (block.type === "list") {
-                    return (
-                      <ul key={i} className="space-y-2 pl-4">
-                        {block.items?.map((item, j) => (
-                          <li key={j} className="text-sm text-muted-foreground flex items-start gap-2">
-                            <span className="text-primary mt-1.5 shrink-0">•</span>
-                            <span>{item}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    );
-                  }
-                  if (block.type === "code") {
-                    const blockId = `${currentSection.id}-${i}`;
-                    return (
-                      <div key={i} className="terminal-window rounded-xl overflow-hidden border-gradient group relative">
-                        <div className="flex items-center justify-between px-4 py-2 border-b border-border/50">
-                          <div className="flex items-center gap-2">
-                            <div className="flex gap-1.5">
-                              <div className="h-2.5 w-2.5 rounded-full bg-primary/60" />
-                              <div className="h-2.5 w-2.5 rounded-full bg-muted-foreground/20" />
-                              <div className="h-2.5 w-2.5 rounded-full bg-muted-foreground/20" />
-                            </div>
-                            <span className="text-[10px] text-muted-foreground font-mono ml-1">{block.lang}</span>
-                          </div>
-                          <button
-                            onClick={() => copyCode(block.value, blockId)}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
-                          >
-                            {copiedBlock === blockId ? (
-                              <Check className="h-3.5 w-3.5 text-primary" />
-                            ) : (
-                              <Copy className="h-3.5 w-3.5" />
-                            )}
-                          </button>
-                        </div>
-                        <Highlight
-                          theme={themes.nightOwl}
-                          code={block.value}
-                          language={block.lang === "bash" ? "bash" : block.lang === "typescript" ? "typescript" : "javascript"}
-                        >
-                          {({ tokens, getLineProps, getTokenProps }) => (
-                            <pre className="p-4 text-[12px] leading-relaxed font-mono overflow-x-auto bg-transparent">
-                              {tokens.map((line, li) => (
-                                <div key={li} {...getLineProps({ line })}>
-                                  {line.map((token, ti) => (
-                                    <span key={ti} {...getTokenProps({ token })} />
-                                  ))}
-                                </div>
-                              ))}
-                            </pre>
-                          )}
-                        </Highlight>
-                      </div>
-                    );
-                  }
-                  return null;
-                })}
-              </div>
+                {/* Content blocks */}
+                <div className="space-y-5">
+                  {currentSection.content.map((block, i) => renderContent(block, i))}
+                </div>
 
-              {/* Next section nav */}
-              {(() => {
-                const idx = sections.findIndex((s) => s.id === currentSection.id);
-                const next = sections[idx + 1];
-                if (!next) return null;
-                return (
-                  <div className="mt-16 pt-8 border-t border-border/40">
-                    <button
-                      onClick={() => setActiveSection(next.id)}
-                      className="flex items-center gap-3 text-sm text-muted-foreground hover:text-primary transition-colors group"
-                    >
-                      <span>Next: {next.title}</span>
-                      <ArrowLeft className="h-3.5 w-3.5 rotate-180 group-hover:translate-x-1 transition-transform" />
-                    </button>
-                  </div>
-                );
-              })()}
-            </motion.div>
+                {/* Next section */}
+                {(() => {
+                  const idx = allSections.findIndex((s) => s.id === currentSection.id);
+                  const next = allSections[idx + 1];
+                  if (!next) return null;
+                  return (
+                    <div className="mt-14 pt-6 border-t border-border/30">
+                      <button
+                        onClick={() => setActiveSection(next.id)}
+                        className="flex items-center gap-2 text-xs font-mono text-muted-foreground hover:text-primary transition-colors group"
+                      >
+                        Next: {next.title}
+                        <ArrowLeft className="h-3 w-3 rotate-180 group-hover:translate-x-1 transition-transform" />
+                      </button>
+                    </div>
+                  );
+                })()}
+              </motion.div>
+            </AnimatePresence>
           </div>
         </main>
+      </div>
+
+      {/* Footer */}
+      <div className="md:ml-56 border-t border-border/30 py-6 px-6">
+        <p className="text-[10px] font-mono text-muted-foreground text-center">
+          © 2026 SolAgent. Autonomous trading on Solana.
+        </p>
       </div>
     </div>
   );
