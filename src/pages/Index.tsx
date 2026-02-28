@@ -4,6 +4,7 @@ import WhatIsSection from "@/components/WhatIsSection";
 import HowItWorksSection from "@/components/HowItWorksSection";
 import EcosystemSection from "@/components/EcosystemSection";
 import FooterCTA from "@/components/FooterCTA";
+import StickyBottomCTA from "@/components/StickyBottomCTA";
 
 const Index = () => {
   return (
@@ -16,6 +17,7 @@ const Index = () => {
       <HowItWorksSection />
       <div className="divider-fade" />
       <EcosystemSection />
+      <StickyBottomCTA />
       <FooterCTA />
     </div>
   );
