@@ -1,20 +1,20 @@
 import { motion } from "framer-motion";
 import {
-  Cpu, Globe, Code, Monitor, Database, Calendar,
-  Mail, FolderOpen, Activity
+  Bot, TrendingUp, Shield, Zap, Clock, BarChart3,
+  Target, Layers, Eye, Wallet
 } from "lucide-react";
 
 const features = [
-  { icon: Cpu, title: "Full Runtime", description: "Function calling, tool execution, risk modes, and multi-turn conversations in the browser.", tags: ["Function Calling", "Risk Modes"] },
-  { icon: Globe, title: "Any AI Provider", description: "OpenAI, Anthropic, Google, Mistral, DeepSeek, or bring your own API key." },
-  { icon: Code, title: "Code Execution", description: "Sandboxed shell execution for running code, scripts, and commands with output capture." },
-  { icon: Monitor, title: "Browser Control", description: "Fetch pages, extract content, take screenshots, and generate PDFs from any webpage." },
-  { icon: Database, title: "Persistent Memory", description: "Key-value memory store per agent. Save and recall context across conversations." },
-  { icon: Globe, title: "23+ Channels", description: "Deploy to Telegram, WhatsApp, Discord, Slack, Signal, Teams, Matrix, and more." },
-  { icon: Calendar, title: "Scheduled Tasks", description: "Cron-based scheduling with retry backoff and run logs for automation." },
-  { icon: Mail, title: "Email Integration", description: "Transactional emails with full HTML support and templates." },
-  { icon: FolderOpen, title: "File Operations", description: "Create, edit, and patch files in agent workspace with multi-file support.", tags: ["write_file", "apply_patch"] },
-  { icon: Activity, title: "Real-Time Logs", description: "Live WebSocket streaming, per-agent analytics, and usage dashboards." },
+  { icon: Bot, title: "AI-Powered Sniping", description: "Agents detect new token launches on Pump.fun and Raydium, and snipe within milliseconds.", tags: ["Auto-Snipe", "MEV Protection"] },
+  { icon: TrendingUp, title: "Smart Trading", description: "Machine learning models analyze volume, liquidity, and social signals to find the best entries and exits.", tags: ["Buy/Sell", "DCA"] },
+  { icon: Shield, title: "Rug Pull Detection", description: "Real-time contract analysis flags honeypots, locked liquidity issues, and suspicious dev wallets." },
+  { icon: Zap, title: "Lightning Execution", description: "Sub-second trade execution via Jito bundles and priority fees for optimal MEV protection." },
+  { icon: Clock, title: "24/7 Autonomous", description: "Your agent never sleeps. It monitors and trades around the clock while you're away." },
+  { icon: BarChart3, title: "Live PnL Tracking", description: "Real-time profit & loss dashboards, trade history, and performance analytics per agent." },
+  { icon: Target, title: "Custom Strategies", description: "Choose from pre-built strategies or configure your own: momentum, mean-reversion, social alpha, and more." },
+  { icon: Layers, title: "Multi-Agent Portfolios", description: "Run multiple agents with different strategies across different token categories." },
+  { icon: Eye, title: "Copy Trading", description: "Follow top-performing agents on the leaderboard and automatically mirror their trades." },
+  { icon: Wallet, title: "Non-Custodial", description: "Your funds stay in your wallet. Agents trade via delegated authority — you maintain full control." },
 ];
 
 const FeaturesSection = () => {
@@ -28,11 +28,11 @@ const FeaturesSection = () => {
           viewport={{ once: true }}
           className="text-center mb-16"
         >
-          <p className="text-xs uppercase tracking-[0.25em] text-primary mb-3 font-medium">Platform Capabilities</p>
+          <p className="text-xs uppercase tracking-[0.25em] text-primary mb-3 font-medium">Trading Features</p>
           <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight">
-            Everything you need.
+            Your edge in the
             <br />
-            <span className="text-muted-foreground">Nothing you don't.</span>
+            <span className="text-muted-foreground">memecoin market.</span>
           </h2>
         </motion.div>
 

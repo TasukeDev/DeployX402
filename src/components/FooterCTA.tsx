@@ -1,20 +1,21 @@
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/components/AuthContext";
+import { useWallet } from "@/components/WalletContext";
 import { useNavigate } from "react-router-dom";
 
 const FooterCTA = () => {
-  const { login, authenticated } = useAuth();
+  const { connect, connected } = useWallet();
   const navigate = useNavigate();
 
   const handleCTA = () => {
-    if (authenticated) {
+    if (connected) {
       navigate("/dashboard");
     } else {
-      login();
+      connect();
     }
   };
+
   return (
     <footer className="py-24 border-t border-border/40 relative overflow-hidden">
       <div className="absolute inset-0 orb-cyan opacity-20" />
@@ -24,22 +25,22 @@ const FooterCTA = () => {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
         >
-          <img src="/logo.png" alt="LaunchPad logo" className="h-12 w-12 rounded-2xl mb-6" />
+          <img src="/logo.png" alt="Logo" className="h-12 w-12 rounded-2xl mx-auto mb-6" />
           <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-4">
-            Ready to launch your
+            Ready to let AI
             <br />
-            <span className="text-gradient-hero">first agent?</span>
+            <span className="text-gradient-hero">trade for you?</span>
           </h2>
           <p className="text-muted-foreground mb-8 max-w-md mx-auto">
-            Build, deploy, and manage agents from your browser. No infrastructure needed.
+            Connect your wallet, fund an agent, and start trading memecoins on autopilot.
           </p>
           <Button size="lg" onClick={handleCTA} className="bg-primary text-primary-foreground hover:bg-primary/90 glow-primary px-8 font-semibold">
-            Start Building Free <ArrowRight className="ml-2 h-4 w-4" />
+            {connected ? "Go to Dashboard" : "Connect Wallet"} <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         </motion.div>
 
         <div className="mt-16 pt-8 border-t border-border/30 text-xs text-muted-foreground">
-          © 2026 LaunchPad. All rights reserved.
+          © 2026 SolAgent. All rights reserved. Trading involves risk.
         </div>
       </div>
     </footer>
