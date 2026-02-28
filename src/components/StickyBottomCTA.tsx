@@ -12,7 +12,9 @@ const StickyBottomCTA = () => {
 
   useEffect(() => {
     const onScroll = () => {
-      setVisible(window.scrollY > window.innerHeight * 0.8);
+      const pastHero = window.scrollY > window.innerHeight * 0.8;
+      const nearBottom = window.innerHeight + window.scrollY >= document.body.scrollHeight - 300;
+      setVisible(pastHero && !nearBottom);
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
