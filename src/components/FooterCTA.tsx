@@ -16,10 +16,10 @@ const FooterCTA = () => {
           className="flex items-center gap-2 cursor-default"
         >
           <span className="text-primary font-mono text-xs">◆</span>
-          <span className="text-sm font-mono font-medium text-foreground">solagent</span>
+          <span className="text-sm font-mono font-medium text-foreground">DeployX402</span>
         </motion.div>
         <p className="text-[11px] font-mono text-muted-foreground">
-          © 2026 SolAgent. Autonomous trading on Solana. Trading involves risk.
+          © 2026 DeployX402. Autonomous trading on Solana. Trading involves risk.
         </p>
       </div>
     </motion.footer>
