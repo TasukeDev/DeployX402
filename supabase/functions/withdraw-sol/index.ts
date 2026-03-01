@@ -204,7 +204,36 @@ serve(async (req) => {
       });
     }
 
-    const { agent_id, to_address, amount_sol } = await req.json();
+    const body = await req.json();
+    const { agent_id, to_address, amount_sol, action } = body;
+
+    // GET BALANCE action — just return on-chain balance for an agent wallet
+    if (action === "get_balance") {
+      if (!agent_id) {
+        return new Response(JSON.stringify({ error: "Missing agent_id" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const serviceClient = createClient(supabaseUrl, supabaseKey);
+      const { data: walletRow } = await serviceClient
+        .from("agent_wallets")
+        .select("public_key")
+        .eq("agent_id", agent_id)
+        .eq("user_id", user.id)
+        .single();
+      if (!walletRow) {
+        return new Response(JSON.stringify({ error: "Wallet not found" }), {
+          status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const balance = await getSolBalance(walletRow.public_key);
+      // Also persist updated balance
+      await serviceClient.from("agent_wallets").update({ balance_sol: balance }).eq("agent_id", agent_id).eq("user_id", user.id);
+      return new Response(JSON.stringify({ balance_sol: balance }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
 
     if (!agent_id || !to_address || !amount_sol || amount_sol <= 0) {
       return new Response(JSON.stringify({ error: "Missing or invalid parameters" }), {

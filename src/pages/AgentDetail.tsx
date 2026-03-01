@@ -37,6 +37,7 @@ interface PnlSnapshot {
 interface AgentWallet {
   public_key: string;
   balance_sol: number;
+  agent_id?: string;
 }
 
 interface Position {
@@ -169,16 +170,12 @@ const AgentDetail = () => {
     const walletData = await walletRes.json();
     if (Array.isArray(walletData) && walletData.length > 0) {
       const w = walletData[0] as AgentWallet;
-      // Fetch live on-chain balance instead of stale DB value
+      // Fetch live on-chain balance via edge function (avoids browser CORS block on public RPC)
       try {
-        const rpcRes = await fetch("https://api.mainnet-beta.solana.com", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "getBalance", params: [w.public_key, { commitment: "confirmed" }] }),
+        const { data: balData } = await supabase.functions.invoke("withdraw-sol", {
+          body: { action: "get_balance", agent_id: id },
         });
-        const rpcJson = await rpcRes.json();
-        const lamports = rpcJson?.result?.value ?? 0;
-        w.balance_sol = lamports / 1_000_000_000;
+        if (balData?.balance_sol !== undefined) w.balance_sol = balData.balance_sol;
       } catch { /* keep DB value on RPC failure */ }
       setWallet(w);
     }
@@ -212,22 +209,18 @@ const AgentDetail = () => {
     if (!wallet) return;
     setBalanceRefreshing(true);
     try {
-      const resp = await fetch("https://api.mainnet-beta.solana.com", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0", id: 1, method: "getBalance",
-          params: [wallet.public_key, { commitment: "confirmed" }],
-        }),
+      const { data, error } = await supabase.functions.invoke("withdraw-sol", {
+        body: { action: "get_balance", agent_id: wallet.agent_id ?? id },
       });
-      const json = await resp.json();
-      const lamports = json?.result?.value ?? 0;
-      setWallet(prev => prev ? { ...prev, balance_sol: lamports / 1_000_000_000 } : prev);
+      if (error) throw error;
+      if (data?.balance_sol !== undefined) {
+        setWallet(prev => prev ? { ...prev, balance_sol: data.balance_sol } : prev);
+      }
     } catch {
       toast({ title: "Failed to fetch balance", variant: "destructive" });
     }
     setBalanceRefreshing(false);
-  }, [wallet, toast]);
+  }, [wallet, id, toast]);
 
   // Auto-refresh balance every 30s when on wallet tab
   useEffect(() => {
