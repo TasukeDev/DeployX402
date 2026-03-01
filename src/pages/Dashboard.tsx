@@ -30,7 +30,7 @@ interface Agent {
 }
 
 const Dashboard = () => {
-  const { authenticated } = useAuth();
+  const { authenticated, userDisplay } = useAuth();
   const { connected, connect, shortAddress, balance, disconnect } = useWallet();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -52,7 +52,7 @@ const Dashboard = () => {
   useEffect(() => {
     const hasRunning = agents.some((a) => a.status === "running");
     if (hasRunning) {
-      const runSim = () => supabase.functions.invoke("simulate-trades").catch(console.error);
+      const runSim = () => supabase.functions.invoke("execute-trades").catch(console.error);
       runSim();
       const id = setInterval(runSim, 15000);
       setSimInterval(id);
@@ -165,7 +165,10 @@ const Dashboard = () => {
                 <button onClick={disconnect} className="text-[10px] font-mono text-muted-foreground hover:text-foreground ml-1">disconnect</button>
               </>
             ) : authenticated ? (
-              <button onClick={() => supabase.auth.signOut()} className="text-[10px] font-mono text-muted-foreground hover:text-foreground transition-colors">sign out</button>
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] font-mono text-muted-foreground">{userDisplay}</span>
+                <button onClick={() => supabase.auth.signOut()} className="text-[10px] font-mono text-muted-foreground hover:text-foreground transition-colors border border-border/50 px-2 py-1 rounded-md">sign out</button>
+              </div>
             ) : (
               <button onClick={() => navigate("/auth")} className="px-4 py-1.5 rounded-full border border-border text-xs font-mono text-foreground hover:bg-secondary transition-colors">
                 Sign in

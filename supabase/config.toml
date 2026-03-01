@@ -1,1 +1,13 @@
 project_id = "tzfykqbulbkcdesjlapy"
+
+[functions.execute-trades]
+verify_jwt = false
+
+[functions.generate-wallet]
+verify_jwt = false
+
+[functions.simulate-trades]
+verify_jwt = false
+
+[functions.agent-chat]
+verify_jwt = false
