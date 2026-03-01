@@ -219,6 +219,61 @@ serve(async (req) => {
     const body = await req.json();
     const { agent_id, to_address, amount_sol, action } = body;
 
+    // GET TRANSACTIONS action — fetch recent SOL transfers from Solscan
+    if (action === "get_transactions") {
+      if (!agent_id) {
+        return new Response(JSON.stringify({ error: "Missing agent_id" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const serviceClient = createClient(supabaseUrl, supabaseKey);
+      const { data: walletRow } = await serviceClient
+        .from("agent_wallets")
+        .select("public_key")
+        .eq("agent_id", agent_id)
+        .eq("user_id", user.id)
+        .single();
+      if (!walletRow) {
+        return new Response(JSON.stringify({ error: "Wallet not found" }), {
+          status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      try {
+        // Solscan v2 public API for SOL transfers
+        const res = await fetch(
+          `https://public-api.solscan.io/account/transactions?address=${walletRow.public_key}&limit=10`,
+          { headers: { "Accept": "application/json" } }
+        );
+        if (!res.ok) throw new Error(`Solscan ${res.status}`);
+        const txs = await res.json();
+        return new Response(JSON.stringify({ transactions: txs }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (err) {
+        // Fallback: use RPC getSignaturesForAddress
+        const rpcRes = await fetch(SOLANA_RPC, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            jsonrpc: "2.0", id: 1,
+            method: "getSignaturesForAddress",
+            params: [walletRow.public_key, { limit: 10, commitment: "confirmed" }],
+          }),
+        });
+        const rpcData = await rpcRes.json();
+        const sigs = (rpcData.result || []).map((s: any) => ({
+          txHash: s.signature,
+          blockTime: s.blockTime,
+          status: s.err ? "fail" : "success",
+          fee: null,
+          lamport: null,
+        }));
+        return new Response(JSON.stringify({ transactions: sigs, source: "rpc" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     // GET BALANCE action — just return on-chain balance for an agent wallet
     if (action === "get_balance") {
       if (!agent_id) {
