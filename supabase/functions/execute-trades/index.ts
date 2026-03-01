@@ -291,7 +291,9 @@ serve(async (req) => {
           const sellTxSig = await sendTransaction(signedSellTx);
           const onChainSellSig = await extractTxSignature(signedSellTx);
 
-          const realizedPnl = (currentPrice - pos.entry_price) * pos.token_amount;
+          // PnL in SOL: actual SOL received from sell minus SOL spent on buy
+          const solReceived = parseInt(sellQuote.outAmount || "0") / 1e9;
+          const realizedPnl = solReceived - pos.entry_amount_sol;
           const newBalance = await getSolBalance(wallet.public_key);
 
           await supabase.from("agent_positions").update({
