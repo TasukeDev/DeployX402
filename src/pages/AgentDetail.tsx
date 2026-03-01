@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/components/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -57,6 +58,7 @@ const DEFAULT_SL = 0.03;
 const AgentDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const { authenticated } = useAuth();
   const [agent, setAgent] = useState<AgentData | null>(null);
@@ -68,7 +70,8 @@ const AgentDetail = () => {
   const [loading, setLoading] = useState(true);
   const [copying, setCopying] = useState(false);
   const [liveIndicator, setLiveIndicator] = useState(false);
-  const [tab, setTab] = useState<"pnl" | "trades" | "positions" | "config" | "wallet">("pnl");
+  const initialTab = (searchParams.get("tab") as "pnl" | "trades" | "positions" | "config" | "wallet") || "pnl";
+  const [tab, setTab] = useState<"pnl" | "trades" | "positions" | "config" | "wallet">(initialTab);
   const [positions, setPositions] = useState<Position[]>([]);
   const [positionPrices, setPositionPrices] = useState<Record<string, number>>({});
   const [pricesLoading, setPricesLoading] = useState(false);
@@ -808,6 +811,24 @@ const AgentDetail = () => {
                     </a>
                   </div>
                 </div>
+                {/* QR Code for funding */}
+                <div className="flex flex-col items-center gap-3 rounded-lg bg-secondary/50 border border-border p-5">
+                  <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider self-start">Scan to Fund</p>
+                  <div className="p-3 rounded-xl bg-white">
+                    <QRCodeSVG
+                      value={`solana:${wallet.public_key}`}
+                      size={160}
+                      bgColor="#ffffff"
+                      fgColor="#000000"
+                      level="M"
+                      includeMargin={false}
+                    />
+                  </div>
+                  <p className="text-[9px] font-mono text-muted-foreground text-center">
+                    Scan with Phantom, Solflare, or any Solana wallet app to send SOL
+                  </p>
+                </div>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-lg bg-secondary/50 border border-border p-4">
                     <p className="text-[10px] font-mono text-muted-foreground uppercase mb-1">Balance</p>
