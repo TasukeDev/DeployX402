@@ -1,5 +1,5 @@
-import { motion } from "framer-motion";
-import { useState, useRef, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useState, useRef, useCallback, useEffect } from "react";
 
 interface AgentNetworkProps {
   agents: { id: string; name: string; status: string }[];
@@ -13,29 +13,48 @@ interface NodePos {
   y: number;
 }
 
+const getInitialPos = (index: number, total: number, centerX: number, centerY: number, radius: number) => {
+  const angle = (2 * Math.PI * index) / Math.max(total, 1) - Math.PI / 2;
+  return {
+    x: centerX + radius * Math.cos(angle),
+    y: centerY + radius * Math.sin(angle),
+  };
+};
+
 const AgentNetwork = ({ agents }: AgentNetworkProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const centerX = 170;
   const centerY = 145;
   const radius = 95;
 
-  const initialNodes: NodePos[] = agents.slice(0, 8).map((a, i) => {
-    const angle = (2 * Math.PI * i) / Math.min(agents.length, 8) - Math.PI / 2;
-    return {
-      ...a,
-      x: centerX + radius * Math.cos(angle),
-      y: centerY + radius * Math.sin(angle),
-    };
-  });
-
-  const [nodePositions, setNodePositions] = useState<Record<string, { x: number; y: number }>>(() => {
-    const initial: Record<string, { x: number; y: number }> = {};
-    initialNodes.forEach((n) => { initial[n.id] = { x: n.x, y: n.y }; });
-    return initial;
-  });
+  const [nodePositions, setNodePositions] = useState<Record<string, { x: number; y: number }>>({});
   const [centerPos, setCenterPos] = useState({ x: centerX, y: centerY });
 
-  const getNodePos = useCallback((node: NodePos) => nodePositions[node.id] || { x: node.x, y: node.y }, [nodePositions]);
+  // When agents list changes, register positions for any new agents
+  useEffect(() => {
+    setNodePositions((prev) => {
+      const updated = { ...prev };
+      const visibleAgents = agents.slice(0, 8);
+      let added = false;
+      visibleAgents.forEach((a, i) => {
+        if (!(a.id in updated)) {
+          // Recalculate angles for all nodes based on new total
+          const pos = getInitialPos(i, visibleAgents.length, centerX, centerY, radius);
+          updated[a.id] = pos;
+          added = true;
+        }
+      });
+      return added ? updated : prev;
+    });
+  }, [agents]);
+
+  const visibleAgents = agents.slice(0, 8);
+
+  const getNodePos = useCallback(
+    (agent: { id: string }, index: number) =>
+      nodePositions[agent.id] ?? getInitialPos(index, visibleAgents.length, centerX, centerY, radius),
+    [nodePositions, visibleAgents.length]
+  );
 
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
@@ -56,13 +75,16 @@ const AgentNetwork = ({ agents }: AgentNetworkProps) => {
           backgroundSize: '20px 20px',
         }}
       >
-        {/* Connection lines — update dynamically with centerPos */}
+        {/* Connection lines — SVG redraws on every drag */}
         <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 0 }}>
-          {initialNodes.map((node) => {
-            const pos = getNodePos(node);
+          {visibleAgents.map((agent, i) => {
+            const pos = getNodePos(agent, i);
             return (
-              <line
-                key={`line-${node.id}`}
+              <motion.line
+                key={`line-${agent.id}`}
+                initial={{ pathLength: 0, opacity: 0 }}
+                animate={{ pathLength: 1, opacity: 0.6 }}
+                transition={{ duration: 0.5, ease: "easeOut" }}
                 x1={centerPos.x}
                 y1={centerPos.y}
                 x2={pos.x}
@@ -70,7 +92,6 @@ const AgentNetwork = ({ agents }: AgentNetworkProps) => {
                 stroke="hsl(var(--border))"
                 strokeWidth="1"
                 strokeDasharray="4 4"
-                opacity="0.6"
               />
             );
           })}
@@ -96,7 +117,6 @@ const AgentNetwork = ({ agents }: AgentNetworkProps) => {
           whileHover={{ scale: 1.08 }}
           whileTap={{ scale: 0.96 }}
         >
-          {/* Outer glow ring */}
           <div className="relative h-14 w-14 flex items-center justify-center">
             <div className="absolute inset-0 rounded-full border-2 border-primary/30 shadow-[0_0_18px_hsl(var(--primary)/0.25)]" />
             <div className="absolute inset-1 rounded-full border border-primary/20" />
@@ -104,69 +124,71 @@ const AgentNetwork = ({ agents }: AgentNetworkProps) => {
               <span className="text-primary font-mono text-xs font-bold leading-none">◆</span>
               <span className="text-[7px] font-mono font-bold text-primary leading-tight tracking-wide">DX402</span>
             </div>
-            {/* Animated ping */}
             <span className="absolute inset-0 rounded-full border border-primary/20 animate-ping opacity-30" />
           </div>
         </motion.div>
 
         {/* Draggable agent nodes */}
-        {initialNodes.map((node, i) => {
-          const pos = getNodePos(node);
-          return (
-            <motion.div
-              key={node.id}
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: "spring", stiffness: 200, delay: 0.3 + i * 0.08 }}
-              drag
-              dragMomentum={false}
-              dragElastic={0}
-              dragConstraints={containerRef}
-              onDrag={(_e, info) => {
-                setNodePositions((prev) => ({
-                  ...prev,
-                  [node.id]: {
-                    x: (prev[node.id]?.x ?? node.x) + info.delta.x,
-                    y: (prev[node.id]?.y ?? node.y) + info.delta.y,
-                  },
-                }));
-              }}
-              className="absolute z-10 group cursor-grab active:cursor-grabbing"
-              style={{ left: pos.x - 20, top: pos.y - 20 }}
-              whileHover={{ scale: 1.15 }}
-              whileTap={{ scale: 1.05 }}
-            >
-              {/* Text agent node */}
-              <div className={`h-10 w-10 flex items-center justify-center rounded-full border bg-card transition-all duration-200 ${
-                node.status === "running"
-                  ? "border-primary/50 shadow-[0_0_10px_hsl(var(--primary)/0.3)]"
-                  : "border-border opacity-60"
-              }`}>
-                <span className="text-primary font-mono text-xs">◆</span>
-              </div>
+        <AnimatePresence>
+          {visibleAgents.map((agent, i) => {
+            const pos = getNodePos(agent, i);
+            const isRunning = agent.status === "running";
+            return (
+              <motion.div
+                key={agent.id}
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0, opacity: 0 }}
+                transition={{ type: "spring", stiffness: 220, damping: 18, delay: 0.1 }}
+                drag
+                dragMomentum={false}
+                dragElastic={0}
+                dragConstraints={containerRef}
+                onDrag={(_e, info) => {
+                  setNodePositions((prev) => ({
+                    ...prev,
+                    [agent.id]: {
+                      x: (prev[agent.id]?.x ?? pos.x) + info.delta.x,
+                      y: (prev[agent.id]?.y ?? pos.y) + info.delta.y,
+                    },
+                  }));
+                }}
+                className="absolute z-10 group cursor-grab active:cursor-grabbing"
+                style={{ left: pos.x - 20, top: pos.y - 20 }}
+                whileHover={{ scale: 1.15 }}
+                whileTap={{ scale: 1.05 }}
+              >
+                <div className={`h-10 w-10 flex items-center justify-center rounded-full border bg-card transition-all duration-200 ${
+                  isRunning
+                    ? "border-primary/50 shadow-[0_0_10px_hsl(var(--primary)/0.3)]"
+                    : "border-border opacity-60"
+                }`}>
+                  <span className="text-primary font-mono text-xs">◆</span>
+                </div>
 
-              {/* Tooltip */}
-              <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                <span className="text-[9px] font-mono text-muted-foreground whitespace-nowrap bg-card px-2 py-1 rounded-md border border-border shadow-md">
-                  {node.name}
-                </span>
-              </div>
+                {/* Tooltip */}
+                <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-30">
+                  <span className="text-[9px] font-mono text-muted-foreground whitespace-nowrap bg-card px-2 py-1 rounded-md border border-border shadow-md">
+                    {agent.name}
+                  </span>
+                </div>
 
-              {/* Active pulse ring */}
-              {node.status === "running" && (
-                <>
-                  <span className="absolute top-0 right-0 h-2.5 w-2.5 rounded-full bg-primary border-2 border-card" />
-                  <span className="absolute top-0 right-0 h-2.5 w-2.5 rounded-full bg-primary animate-ping opacity-40" />
-                </>
-              )}
-            </motion.div>
-          );
-        })}
+                {/* Active pulse ring */}
+                {isRunning && (
+                  <>
+                    <span className="absolute top-0 right-0 h-2.5 w-2.5 rounded-full bg-primary border-2 border-card" />
+                    <span className="absolute top-0 right-0 h-2.5 w-2.5 rounded-full bg-primary animate-ping opacity-40" />
+                  </>
+                )}
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
 
         {/* Empty state */}
         {agents.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <p className="text-[10px] font-mono text-muted-foreground">
+            <p className="text-[10px] font-mono text-muted-foreground text-center px-4">
               More agents will connect as the network grows
             </p>
           </div>
