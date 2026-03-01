@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Trophy, TrendingUp, TrendingDown, Copy, Loader2, Medal } from "lucide-react";
-import { motion } from "framer-motion";
+import { ArrowLeft, Trophy, TrendingUp, TrendingDown, Copy, Loader2, Medal, Radio } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface LeaderboardAgent {
   id: string;
@@ -21,14 +21,45 @@ const Leaderboard = () => {
   const { toast } = useToast();
   const [agents, setAgents] = useState<LeaderboardAgent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sortBy, setSortBy] = useState<"pnl" | "win_rate">("pnl");
+  const [sortBy, setSortBy] = useState<"pnl" | "win_rate" | "trades">("pnl");
+  const [liveFlash, setLiveFlash] = useState(false);
 
   useEffect(() => {
     fetchLeaderboard();
   }, []);
 
+  // Realtime: update leaderboard when new pnl_snapshot is inserted for a public agent
+  useEffect(() => {
+    const channel = supabase
+      .channel("leaderboard-realtime")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "pnl_snapshots" },
+        async (payload) => {
+          const snap = payload.new as { agent_id: string; pnl_sol: number; win_rate: number; total_trades: number };
+          // Check if this agent is public
+          const { data: agentData } = await supabase
+            .from("agents")
+            .select("is_public")
+            .eq("id", snap.agent_id)
+            .single();
+          if (!agentData?.is_public) return;
+          setAgents((prev) =>
+            prev.map((a) =>
+              a.id === snap.agent_id
+                ? { ...a, pnl_sol: snap.pnl_sol, win_rate: snap.win_rate ?? a.win_rate, total_trades: snap.total_trades }
+                : a
+            )
+          );
+          setLiveFlash(true);
+          setTimeout(() => setLiveFlash(false), 2000);
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
   const fetchLeaderboard = async () => {
-    // Fetch public agents
     const { data: agentsData, error: agentsError } = await supabase
       .from("agents")
       .select("id, name, category, model, status")
@@ -46,7 +77,6 @@ const Leaderboard = () => {
       return;
     }
 
-    // Fetch latest PnL snapshot for each agent
     const agentIds = agentsData.map((a) => a.id);
     const { data: snapshots } = await supabase
       .from("pnl_snapshots")
@@ -54,24 +84,16 @@ const Leaderboard = () => {
       .in("agent_id", agentIds)
       .order("snapshot_at", { ascending: false });
 
-    // Get the latest snapshot per agent
     const latestSnapshots: Record<string, typeof snapshots[0]> = {};
     (snapshots || []).forEach((s) => {
       if (!latestSnapshots[s.agent_id]) latestSnapshots[s.agent_id] = s;
     });
 
-    // Merge agents with their PnL data, fallback to mock for agents without snapshots
     const merged: LeaderboardAgent[] = agentsData.map((agent) => {
       const snap = latestSnapshots[agent.id];
       if (snap) {
-        return {
-          ...agent,
-          pnl_sol: snap.pnl_sol,
-          win_rate: snap.win_rate ?? 0,
-          total_trades: snap.total_trades,
-        };
+        return { ...agent, pnl_sol: snap.pnl_sol, win_rate: snap.win_rate ?? 0, total_trades: snap.total_trades };
       }
-      // Deterministic mock fallback
       const h = agent.id.charCodeAt(0) + agent.id.charCodeAt(1);
       return {
         ...agent,
@@ -107,7 +129,9 @@ const Leaderboard = () => {
   };
 
   const sorted = [...agents].sort((a, b) =>
-    sortBy === "pnl" ? b.pnl_sol - a.pnl_sol : b.win_rate - a.win_rate
+    sortBy === "pnl" ? b.pnl_sol - a.pnl_sol :
+    sortBy === "win_rate" ? b.win_rate - a.win_rate :
+    b.total_trades - a.total_trades
   );
 
   const rankIcon = (i: number) => {
@@ -131,9 +155,24 @@ const Leaderboard = () => {
               <span className="text-[10px] text-muted-foreground font-mono">/ leaderboard</span>
             </div>
           </div>
-          <button onClick={() => navigate("/browse")} className="text-xs font-mono text-primary hover:text-primary/80">
-            browse agents →
-          </button>
+          <div className="flex items-center gap-3">
+            <AnimatePresence>
+              {liveFlash && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  className="flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 border border-primary/20"
+                >
+                  <Radio className="h-2.5 w-2.5 text-primary animate-pulse" />
+                  <span className="text-[9px] font-mono text-primary">LIVE UPDATE</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+            <button onClick={() => navigate("/browse")} className="text-xs font-mono text-primary hover:text-primary/80">
+              browse agents →
+            </button>
+          </div>
         </div>
       </nav>
 
@@ -143,12 +182,12 @@ const Leaderboard = () => {
             <Trophy className="h-4 w-4 text-primary" />
             <h1 className="text-xl font-medium">Leaderboard</h1>
           </div>
-          <p className="text-sm text-muted-foreground font-mono">Top-performing public agents ranked by on-chain results</p>
+          <p className="text-sm text-muted-foreground font-mono">Top-performing public agents · live updates via Realtime</p>
         </div>
 
         {/* Sort tabs */}
         <div className="flex gap-1.5 mb-6">
-          {([["pnl", "PnL (SOL)"], ["win_rate", "Win Rate"]] as const).map(([key, label]) => (
+          {([["pnl", "PnL (SOL)"], ["win_rate", "Win Rate"], ["trades", "Most Trades"]] as const).map(([key, label]) => (
             <button
               key={key}
               onClick={() => setSortBy(key)}
@@ -177,9 +216,10 @@ const Leaderboard = () => {
             {sorted.map((agent, i) => (
               <motion.div
                 key={agent.id}
+                layout
                 initial={{ opacity: 0, x: -8 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.04 }}
+                transition={{ delay: i * 0.03 }}
                 className={`flex items-center gap-4 rounded-xl border px-5 py-4 transition-colors group hover:border-primary/20 ${
                   i === 0 ? "border-primary/30 bg-primary/5" :
                   i === 1 ? "border-muted bg-muted/20" :
@@ -206,9 +246,7 @@ const Leaderboard = () => {
                   <div className="text-right">
                     <p className="text-[10px] font-mono text-muted-foreground uppercase">PnL</p>
                     <p className={`text-sm font-mono font-bold flex items-center gap-0.5 ${agent.pnl_sol >= 0 ? "text-primary" : "text-destructive"}`}>
-                      {agent.pnl_sol >= 0
-                        ? <TrendingUp className="h-3 w-3" />
-                        : <TrendingDown className="h-3 w-3" />}
+                      {agent.pnl_sol >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
                       {agent.pnl_sol >= 0 ? "+" : ""}{agent.pnl_sol.toFixed(2)} SOL
                     </p>
                   </div>

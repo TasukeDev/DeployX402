@@ -4,9 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/components/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import {
-  ArrowLeft, TrendingUp, Play, Square, Loader2,
+  ArrowLeft, TrendingUp, TrendingDown, Play, Square, Loader2,
   Settings, BarChart3, Clock, Zap, Wallet, Copy, ExternalLink, GitFork, Radio,
-  Target, TrendingDown, AlertTriangle,
+  Target, AlertTriangle, ArrowDownToLine,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -18,6 +18,7 @@ interface AgentData {
   id: string; name: string; category: string; model: string;
   status: string; system_prompt: string | null; created_at: string;
   is_public: boolean; user_id: string;
+  take_profit_pct: number; stop_loss_pct: number;
 }
 
 interface Trade {
@@ -50,8 +51,8 @@ interface Position {
   buy_tx_signature: string | null;
 }
 
-const TAKE_PROFIT_PCT = 0.05;
-const STOP_LOSS_PCT = -0.03;
+const DEFAULT_TP = 0.05;
+const DEFAULT_SL = 0.03;
 
 const AgentDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -71,6 +72,9 @@ const AgentDetail = () => {
   const [positions, setPositions] = useState<Position[]>([]);
   const [positionPrices, setPositionPrices] = useState<Record<string, number>>({});
   const [pricesLoading, setPricesLoading] = useState(false);
+  const [tpInput, setTpInput] = useState("");
+  const [slInput, setSlInput] = useState("");
+  const [savingTpSl, setSavingTpSl] = useState(false);
   const tradesRef = useRef<Trade[]>([]);
   tradesRef.current = trades;
 
@@ -169,8 +173,12 @@ const AgentDetail = () => {
       return;
     }
 
-    setAgent(agentRes.data as AgentData);
+    const agentData = agentRes.data as AgentData;
+    setAgent(agentData);
+    setTpInput(((agentData.take_profit_pct ?? DEFAULT_TP) * 100).toFixed(1));
+    setSlInput(((agentData.stop_loss_pct ?? DEFAULT_SL) * 100).toFixed(1));
     setTrades((tradesRes.data as Trade[]) || []);
+
 
     const realSnapshots = (snapshotsRes.data as PnlSnapshot[]) || [];
     if (realSnapshots.length === 0) {
@@ -576,8 +584,10 @@ const AgentDetail = () => {
                 const currentPrice = positionPrices[pos.id];
                 const priceChange = currentPrice ? (currentPrice - pos.entry_price) / pos.entry_price : null;
                 const unrealizedPnl = priceChange !== null ? priceChange * pos.entry_amount_sol : null;
-                const tpDist = TAKE_PROFIT_PCT - (priceChange ?? 0);
-                const slDist = (priceChange ?? 0) - STOP_LOSS_PCT;
+                const agentTp = (agent?.take_profit_pct ?? DEFAULT_TP);
+                const agentSl = (agent?.stop_loss_pct ?? DEFAULT_SL);
+                const tpDist = agentTp - (priceChange ?? 0);
+                const slDist = (priceChange ?? 0) - (-agentSl);
                 const pnlColor = unrealizedPnl === null ? "text-muted-foreground" : unrealizedPnl >= 0 ? "text-primary" : "text-destructive";
                 return (
                   <motion.div
@@ -627,17 +637,16 @@ const AgentDetail = () => {
                     {/* TP/SL progress bar */}
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between text-[9px] font-mono text-muted-foreground">
-                        <span className="flex items-center gap-1"><AlertTriangle className="h-2.5 w-2.5 text-destructive" /> SL {(STOP_LOSS_PCT * 100).toFixed(0)}%</span>
+                        <span className="flex items-center gap-1"><AlertTriangle className="h-2.5 w-2.5 text-destructive" /> SL -{(agentSl * 100).toFixed(1)}%</span>
                         <span className="text-primary/60">{pos.entry_amount_sol.toFixed(3)} SOL in</span>
-                        <span className="flex items-center gap-1"><TrendingUp className="h-2.5 w-2.5 text-primary" /> TP +{(TAKE_PROFIT_PCT * 100).toFixed(0)}%</span>
+                        <span className="flex items-center gap-1"><TrendingUp className="h-2.5 w-2.5 text-primary" /> TP +{(agentTp * 100).toFixed(1)}%</span>
                       </div>
                       <div className="relative h-1.5 rounded-full bg-secondary overflow-hidden">
-                        {/* Full range bar: SL=-3% to TP=+5%, total span = 8% */}
                         {priceChange !== null && (
                           <div
                             className={`absolute left-0 top-0 h-full rounded-full transition-all duration-500 ${priceChange >= 0 ? "bg-primary" : "bg-destructive"}`}
                             style={{
-                              width: `${Math.max(2, Math.min(100, ((priceChange - STOP_LOSS_PCT) / (TAKE_PROFIT_PCT - STOP_LOSS_PCT)) * 100))}%`,
+                              width: `${Math.max(2, Math.min(100, ((priceChange - (-agentSl)) / (agentTp - (-agentSl))) * 100))}%`,
                             }}
                           />
                         )}
@@ -664,8 +673,8 @@ const AgentDetail = () => {
 
         {/* Strategy Config */}
         {tab === "config" && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-xl border border-border bg-card p-6 space-y-4">
-            <h3 className="text-xs font-mono text-muted-foreground uppercase tracking-wider mb-4">Strategy Configuration</h3>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-xl border border-border bg-card p-6 space-y-6">
+            <h3 className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Strategy Configuration</h3>
             <div className="grid grid-cols-2 gap-4">
               {[
                 { label: "Strategy", value: agent.category },
@@ -682,14 +691,82 @@ const AgentDetail = () => {
               ))}
             </div>
 
+            {/* TP/SL Config */}
+            <div className="pt-4 border-t border-border space-y-4">
+              <div className="flex items-center gap-2">
+                <Target className="h-3.5 w-3.5 text-primary" />
+                <h4 className="text-xs font-mono font-medium">Risk Management Targets</h4>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                    <TrendingUp className="h-3 w-3 text-primary" /> Take-Profit (%)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="0.1" max="100" step="0.1"
+                      value={tpInput}
+                      onChange={(e) => setTpInput(e.target.value)}
+                      className="flex-1 h-9 rounded-lg border border-border bg-secondary/50 px-3 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+                      placeholder="5.0"
+                    />
+                    <span className="text-xs font-mono text-muted-foreground">%</span>
+                  </div>
+                  <p className="text-[9px] font-mono text-muted-foreground">Sell when price rises by this %</p>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                    <TrendingDown className="h-3 w-3 text-destructive" /> Stop-Loss (%)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="0.1" max="100" step="0.1"
+                      value={slInput}
+                      onChange={(e) => setSlInput(e.target.value)}
+                      className="flex-1 h-9 rounded-lg border border-border bg-secondary/50 px-3 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+                      placeholder="3.0"
+                    />
+                    <span className="text-xs font-mono text-muted-foreground">%</span>
+                  </div>
+                  <p className="text-[9px] font-mono text-muted-foreground">Sell when price drops by this %</p>
+                </div>
+              </div>
+              <button
+                onClick={async () => {
+                  const tp = parseFloat(tpInput) / 100;
+                  const sl = parseFloat(slInput) / 100;
+                  if (isNaN(tp) || isNaN(sl) || tp <= 0 || sl <= 0) {
+                    toast({ title: "Invalid values", description: "TP and SL must be positive numbers.", variant: "destructive" });
+                    return;
+                  }
+                  setSavingTpSl(true);
+                  const { error } = await supabase.from("agents").update({ take_profit_pct: tp, stop_loss_pct: sl }).eq("id", agent.id);
+                  if (error) {
+                    toast({ title: "Save failed", description: error.message, variant: "destructive" });
+                  } else {
+                    setAgent({ ...agent, take_profit_pct: tp, stop_loss_pct: sl });
+                    toast({ title: "Targets saved!", description: `TP: +${(tp * 100).toFixed(1)}% · SL: -${(sl * 100).toFixed(1)}%` });
+                  }
+                  setSavingTpSl(false);
+                }}
+                disabled={savingTpSl}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-primary/10 border border-primary/20 text-xs font-mono text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
+              >
+                {savingTpSl ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Target className="h-3.5 w-3.5" />}
+                Save Risk Targets
+              </button>
+            </div>
+
             {/* Copy Trade CTA */}
-            <div className="mt-4 pt-4 border-t border-border">
+            <div className="pt-4 border-t border-border">
               <motion.button
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.99 }}
                 onClick={handleCopyTrade}
                 disabled={copying}
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-primary/10 border border-primary/20 text-sm font-mono text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-secondary border border-border text-sm font-mono text-foreground hover:bg-secondary/80 transition-colors disabled:opacity-50"
               >
                 {copying ? <Loader2 className="h-4 w-4 animate-spin" /> : <GitFork className="h-4 w-4" />}
                 Copy this strategy to my dashboard
@@ -743,13 +820,50 @@ const AgentDetail = () => {
                     <p className="text-lg font-mono font-bold text-foreground">{agent.status === "running" ? "Trading" : "Idle"}</p>
                   </div>
                 </div>
+
+                {/* Withdraw Section */}
+                <div className="rounded-lg border border-border bg-secondary/20 p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <ArrowDownToLine className="h-3.5 w-3.5 text-primary" />
+                    <p className="text-xs font-mono font-medium">Withdraw Funds</p>
+                  </div>
+                  <p className="text-[10px] font-mono text-muted-foreground">
+                    To withdraw, stop the agent, then transfer SOL from the agent wallet address to your personal wallet using any Solana wallet app.
+                  </p>
+                  <div className="rounded-lg bg-secondary/50 border border-border p-3 space-y-1.5">
+                    <p className="text-[9px] font-mono text-muted-foreground uppercase tracking-wider">Steps to withdraw</p>
+                    <ol className="text-[10px] font-mono text-foreground space-y-1 list-decimal list-inside">
+                      <li>Stop the agent (to pause trading)</li>
+                      <li>Import the agent wallet in Phantom or Solflare</li>
+                      <li>Send SOL to your personal address</li>
+                    </ol>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {agent.status === "running" && (
+                      <button
+                        onClick={toggleStatus}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-destructive/10 border border-destructive/20 text-[10px] font-mono text-destructive hover:bg-destructive/20 transition-colors"
+                      >
+                        <Square className="h-3 w-3" /> Stop Agent
+                      </button>
+                    )}
+                    <a
+                      href={`https://solscan.io/account/${wallet.public_key}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary border border-border text-[10px] font-mono text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <ExternalLink className="h-3 w-3" /> View on Solscan
+                    </a>
+                  </div>
+                </div>
+
                 <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
                   <p className="text-xs font-mono text-primary font-medium mb-1">How to fund your agent</p>
                   <ol className="text-[10px] font-mono text-muted-foreground space-y-1 list-decimal list-inside">
                     <li>Copy the deposit address above</li>
                     <li>Send SOL from your wallet (Phantom, Solflare, etc.)</li>
                     <li>Start the agent — it will begin trading automatically</li>
-                    <li>Withdraw anytime by stopping the agent</li>
                   </ol>
                 </div>
               </div>

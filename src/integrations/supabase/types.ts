@@ -158,7 +158,9 @@ export type Database = {
           model: string
           name: string
           status: string
+          stop_loss_pct: number
           system_prompt: string | null
+          take_profit_pct: number
           updated_at: string
           user_id: string
         }
@@ -170,7 +172,9 @@ export type Database = {
           model?: string
           name: string
           status?: string
+          stop_loss_pct?: number
           system_prompt?: string | null
+          take_profit_pct?: number
           updated_at?: string
           user_id: string
         }
@@ -182,7 +186,9 @@ export type Database = {
           model?: string
           name?: string
           status?: string
+          stop_loss_pct?: number
           system_prompt?: string | null
+          take_profit_pct?: number
           updated_at?: string
           user_id?: string
         }
