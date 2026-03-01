@@ -80,6 +80,7 @@ const AgentDetail = () => {
   const [tpInput, setTpInput] = useState("");
   const [slInput, setSlInput] = useState("");
   const [savingTpSl, setSavingTpSl] = useState(false);
+  const [sellingAll, setSellingAll] = useState(false);
   const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
@@ -378,6 +379,26 @@ const AgentDetail = () => {
     );
     setPositionPrices(prices);
     setPricesLoading(false);
+  };
+
+  const sellAll = async () => {
+    if (!agent || positions.length === 0) return;
+    setSellingAll(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("sell-all-positions", {
+        body: { agent_id: agent.id },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast({
+        title: `Sold ${data.sold} position${data.sold !== 1 ? "s" : ""}`,
+        description: "All open positions have been closed.",
+      });
+      setPositions([]);
+    } catch (e: any) {
+      toast({ title: "Sell-all failed", description: e.message, variant: "destructive" });
+    }
+    setSellingAll(false);
   };
 
   const handleCopyTrade = async () => {
@@ -725,14 +746,26 @@ const AgentDetail = () => {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
             <div className="flex items-center justify-between mb-3">
               <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Open Positions</span>
-              <button
-                onClick={() => fetchCurrentPrices(positions)}
-                disabled={pricesLoading}
-                className="flex items-center gap-1 text-[10px] font-mono text-muted-foreground hover:text-primary transition-colors"
-              >
-                {pricesLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Radio className="h-3 w-3" />}
-                Refresh prices
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => fetchCurrentPrices(positions)}
+                  disabled={pricesLoading}
+                  className="flex items-center gap-1 text-[10px] font-mono text-muted-foreground hover:text-primary transition-colors"
+                >
+                  {pricesLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Radio className="h-3 w-3" />}
+                  Refresh prices
+                </button>
+                {positions.length > 0 && (
+                  <button
+                    onClick={sellAll}
+                    disabled={sellingAll}
+                    className="flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/20 transition-colors disabled:opacity-50"
+                  >
+                    {sellingAll ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowDownToLine className="h-3 w-3" />}
+                    Sell All
+                  </button>
+                )}
+              </div>
             </div>
             {positions.length === 0 ? (
               <div className="text-center py-16 rounded-xl border border-dashed border-border">
