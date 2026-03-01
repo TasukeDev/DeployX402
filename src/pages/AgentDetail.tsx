@@ -1,13 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/components/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, TrendingUp, Play, Square, Loader2,
-  Settings, BarChart3, Clock, Zap, Wallet, Copy, ExternalLink, GitFork,
+  Settings, BarChart3, Clock, Zap, Wallet, Copy, ExternalLink, GitFork, Radio,
 } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, AreaChart, Area,
@@ -42,15 +42,57 @@ const AgentDetail = () => {
   const { authenticated } = useAuth();
   const [agent, setAgent] = useState<AgentData | null>(null);
   const [trades, setTrades] = useState<Trade[]>([]);
+  const [newTradeIds, setNewTradeIds] = useState<Set<string>>(new Set());
   const [snapshots, setSnapshots] = useState<PnlSnapshot[]>([]);
   const [wallet, setWallet] = useState<AgentWallet | null>(null);
   const [walletLoading, setWalletLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [copying, setCopying] = useState(false);
+  const [liveIndicator, setLiveIndicator] = useState(false);
   const [tab, setTab] = useState<"pnl" | "trades" | "config" | "wallet">("pnl");
+  const tradesRef = useRef<Trade[]>([]);
+  tradesRef.current = trades;
 
   useEffect(() => {
     if (id) fetchAll();
+  }, [id]);
+
+  // Realtime subscription for new trades
+  useEffect(() => {
+    if (!id) return;
+    const channel = supabase
+      .channel(`agent-trades-${id}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "trade_history", filter: `agent_id=eq.${id}` },
+        (payload) => {
+          const newTrade = payload.new as Trade;
+          setTrades((prev) => [newTrade, ...prev.slice(0, 49)]);
+          setNewTradeIds((prev) => new Set(prev).add(newTrade.id));
+          // Flash live indicator
+          setLiveIndicator(true);
+          setTimeout(() => setLiveIndicator(false), 2000);
+          // Clear highlight after 3s
+          setTimeout(() => {
+            setNewTradeIds((prev) => { const s = new Set(prev); s.delete(newTrade.id); return s; });
+          }, 3000);
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "pnl_snapshots", filter: `agent_id=eq.${id}` },
+        (payload) => {
+          const snap = payload.new as PnlSnapshot;
+          setSnapshots((prev) => {
+            const updated = [...prev, snap];
+            updated.sort((a, b) => new Date(a.snapshot_at).getTime() - new Date(b.snapshot_at).getTime());
+            return updated;
+          });
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, [id]);
 
   const fetchAll = async () => {
@@ -277,7 +319,11 @@ const AgentDetail = () => {
                 tab === t.key ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
               }`}
             >
-              <t.icon className="h-3 w-3" /> {t.label}
+              <t.icon className="h-3 w-3" />
+              {t.label}
+              {t.key === "trades" && liveIndicator && (
+                <span className="ml-1 h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+              )}
             </button>
           ))}
         </div>
@@ -343,41 +389,71 @@ const AgentDetail = () => {
             ) : (
               <>
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Recent trades</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Recent trades</span>
+                    {/* Live badge */}
+                    <AnimatePresence>
+                      {liveIndicator && (
+                        <motion.span
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.8 }}
+                          className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-primary/10 border border-primary/20"
+                        >
+                          <Radio className="h-2.5 w-2.5 text-primary animate-pulse" />
+                          <span className="text-[9px] font-mono text-primary">LIVE</span>
+                        </motion.span>
+                      )}
+                    </AnimatePresence>
+                  </div>
                   <span className="text-[10px] font-mono text-muted-foreground">{trades.length} records</span>
                 </div>
-                {trades.map((trade, i) => (
-                  <motion.div
-                    key={trade.id}
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.03 }}
-                    className="rounded-xl border border-border bg-card p-4 flex items-center justify-between hover:border-border/80 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${
-                        trade.action === "buy" ? "bg-primary/10 text-primary" : "bg-destructive/10 text-destructive"
-                      }`}>
-                        {trade.action.toUpperCase()}
-                      </span>
-                      <div>
-                        <span className="text-sm font-mono font-medium">{trade.token_symbol}</span>
-                        <p className="text-[10px] font-mono text-muted-foreground">
-                          {trade.amount_sol} SOL @ ${trade.price.toFixed(6)}
-                          {trade.signal && <span className="text-primary/70"> · {trade.signal}</span>}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className={`text-xs font-mono font-bold ${trade.pnl_sol >= 0 ? "text-primary" : "text-destructive"}`}>
-                        {trade.pnl_sol >= 0 ? "+" : ""}{trade.pnl_sol.toFixed(4)} SOL
-                      </p>
-                      <p className="text-[10px] font-mono text-muted-foreground">
-                        {new Date(trade.created_at).toLocaleString("en", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                      </p>
-                    </div>
-                  </motion.div>
-                ))}
+                <AnimatePresence initial={false}>
+                  {trades.map((trade) => {
+                    const isNew = newTradeIds.has(trade.id);
+                    return (
+                      <motion.div
+                        key={trade.id}
+                        layout
+                        initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                        className={`rounded-xl border bg-card p-4 flex items-center justify-between transition-colors ${
+                          isNew
+                            ? "border-primary/40 shadow-[0_0_12px_hsl(var(--primary)/0.12)]"
+                            : "border-border hover:border-border/80"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${
+                            trade.action === "buy" ? "bg-primary/10 text-primary" : "bg-destructive/10 text-destructive"
+                          }`}>
+                            {trade.action.toUpperCase()}
+                          </span>
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-sm font-mono font-medium">{trade.token_symbol}</span>
+                              {isNew && <span className="text-[8px] font-mono text-primary bg-primary/10 px-1 rounded">NEW</span>}
+                            </div>
+                            <p className="text-[10px] font-mono text-muted-foreground">
+                              {trade.amount_sol} SOL @ ${trade.price.toFixed(6)}
+                              {trade.signal && <span className="text-primary/70"> · {trade.signal}</span>}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className={`text-xs font-mono font-bold ${trade.pnl_sol >= 0 ? "text-primary" : "text-destructive"}`}>
+                            {trade.pnl_sol >= 0 ? "+" : ""}{trade.pnl_sol.toFixed(4)} SOL
+                          </p>
+                          <p className="text-[10px] font-mono text-muted-foreground">
+                            {new Date(trade.created_at).toLocaleString("en", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
               </>
             )}
           </motion.div>
