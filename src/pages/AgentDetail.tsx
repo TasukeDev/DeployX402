@@ -81,6 +81,9 @@ const AgentDetail = () => {
   const [slInput, setSlInput] = useState("");
   const [savingTpSl, setSavingTpSl] = useState(false);
   const [sellingAll, setSellingAll] = useState(false);
+  const [onChainTokens, setOnChainTokens] = useState<Array<{ mint: string; symbol: string; uiAmount: number; priceUsd: number | null; amount: number; decimals: number }>>([]);
+  const [onChainSyncing, setOnChainSyncing] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
   const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
@@ -322,30 +325,30 @@ const AgentDetail = () => {
     return () => clearInterval(interval);
   }, [tab, wallet, refreshBalance, fetchRecentTxs, id]);
 
-  // Periodic on-chain sync: every 30s on positions tab, refresh wallet balance + positions
+  const syncOnChain = useCallback(async () => {
+    if (!id) return;
+    setOnChainSyncing(true);
+    try {
+      // Fetch on-chain balances + DB positions in parallel
+      const [onChainRes, posData] = await Promise.all([
+        supabase.functions.invoke("get-onchain-balances", { body: { agent_id: id } }),
+        supabase.from("agent_positions").select("*").eq("agent_id", id).eq("status", "open").order("created_at", { ascending: false }),
+      ]);
+      if (onChainRes.data?.tokens) setOnChainTokens(onChainRes.data.tokens);
+      if (onChainRes.data?.sol_balance !== undefined) {
+        setWallet(prev => prev ? { ...prev, balance_sol: onChainRes.data.sol_balance } : prev);
+      }
+      if (posData.data) setPositions(posData.data as Position[]);
+      setLastSyncedAt(new Date());
+    } catch { /* silent */ }
+    setOnChainSyncing(false);
+  }, [id]);
+
+  // Periodic on-chain sync: every 30s on positions tab
   useEffect(() => {
     if (tab !== "positions" || !id) return;
-    const sync = async () => {
-      // Refresh wallet balance
-      try {
-        const { data } = await supabase.functions.invoke("withdraw-sol", {
-          body: { action: "get_balance", agent_id: id },
-        });
-        if (data?.balance_sol !== undefined) {
-          setWallet(prev => prev ? { ...prev, balance_sol: data.balance_sol } : prev);
-        }
-      } catch { /* silent */ }
-      // Refresh open positions from DB
-      const { data: posData } = await supabase
-        .from("agent_positions")
-        .select("*")
-        .eq("agent_id", id)
-        .eq("status", "open")
-        .order("created_at", { ascending: false });
-      if (posData) setPositions(posData as Position[]);
-    };
-    sync();
-    const interval = setInterval(sync, 30000);
+    syncOnChain();
+    const interval = setInterval(syncOnChain, 30000);
     return () => clearInterval(interval);
   }, [tab, id]);
 
@@ -776,7 +779,8 @@ const AgentDetail = () => {
         {/* Open Positions */}
         {tab === "positions" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
-            <div className="flex items-center justify-between mb-3">
+            {/* Header row */}
+            <div className="flex items-center justify-between mb-1">
               <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Open Positions</span>
               <div className="flex items-center gap-2">
                 <button
@@ -797,8 +801,69 @@ const AgentDetail = () => {
                 </button>
               </div>
             </div>
+
+            {/* Sync status bar */}
+            <div className="flex items-center justify-between rounded-lg border border-border bg-secondary/20 px-3 py-1.5">
+              <div className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground">
+                <div className={`h-1.5 w-1.5 rounded-full ${onChainSyncing ? "bg-primary animate-pulse" : lastSyncedAt ? "bg-primary/70" : "bg-muted-foreground/40"}`} />
+                {onChainSyncing
+                  ? "Syncing on-chain..."
+                  : lastSyncedAt
+                    ? `Last synced ${lastSyncedAt.toLocaleTimeString("en", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`
+                    : "Not synced yet"}
+              </div>
+              <button
+                onClick={syncOnChain}
+                disabled={onChainSyncing}
+                className="flex items-center gap-1 text-[10px] font-mono text-primary hover:text-primary/80 transition-colors disabled:opacity-50"
+              >
+                <RefreshCw className={`h-3 w-3 ${onChainSyncing ? "animate-spin" : ""}`} />
+                Sync Now
+              </button>
+            </div>
+
+            {/* On-chain holdings (untracked tokens) */}
+            {onChainTokens.length > 0 && (
+              <div className="space-y-2">
+                <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                  On-Chain Holdings
+                </span>
+                {onChainTokens.map((tok) => {
+                  const valueUsd = tok.priceUsd !== null ? tok.uiAmount * tok.priceUsd : null;
+                  const isTracked = positions.some(p => p.token_address === tok.mint);
+                  return (
+                    <div key={tok.mint} className="rounded-xl border border-border bg-card p-3 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-mono font-bold">{tok.symbol}</span>
+                            {isTracked && (
+                              <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">tracked</span>
+                            )}
+                            {!isTracked && (
+                              <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-muted text-muted-foreground border border-border">untracked</span>
+                            )}
+                          </div>
+                          <p className="text-[10px] font-mono text-muted-foreground mt-0.5">{tok.mint.slice(0, 8)}...{tok.mint.slice(-6)}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs font-mono font-semibold">{tok.uiAmount.toLocaleString(undefined, { maximumFractionDigits: 4 })}</p>
+                        {valueUsd !== null && (
+                          <p className="text-[10px] font-mono text-muted-foreground">≈ ${valueUsd.toFixed(2)}</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* DB Tracked positions */}
+            <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider block mt-2">DB Tracked Positions</span>
             {positions.length === 0 ? (
-              <div className="text-center py-16 rounded-xl border border-dashed border-border">
+              <div className="text-center py-10 rounded-xl border border-dashed border-border">
                 <Target className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
                 <p className="text-sm text-muted-foreground font-mono">No open positions</p>
                 <p className="text-[11px] text-muted-foreground font-mono mt-1">Positions appear here when the agent buys a token.</p>
