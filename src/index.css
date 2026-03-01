@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,44 +6,42 @@
 
 @layer base {
   :root {
-    /* Deep navy-black base — distinct from the warm grey of azkelx402 */
-    --background: 222 30% 6%;
-    --foreground: 210 20% 88%;
+    --background: 0 0% 9%;
+    --foreground: 0 0% 85%;
 
-    --card: 222 28% 9%;
-    --card-foreground: 210 20% 88%;
+    --card: 0 0% 11%;
+    --card-foreground: 0 0% 85%;
 
-    --popover: 222 28% 9%;
-    --popover-foreground: 210 20% 88%;
+    --popover: 0 0% 11%;
+    --popover-foreground: 0 0% 85%;
 
-    /* Electric indigo-blue accent — completely different from emerald green */
-    --primary: 239 84% 67%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 160 70% 45%;
+    --primary-foreground: 0 0% 5%;
 
-    --secondary: 222 24% 13%;
-    --secondary-foreground: 210 15% 55%;
+    --secondary: 0 0% 13%;
+    --secondary-foreground: 0 0% 60%;
 
-    --muted: 222 22% 15%;
-    --muted-foreground: 215 12% 40%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 42%;
 
-    --accent: 239 70% 60%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 160 60% 40%;
+    --accent-foreground: 0 0% 5%;
 
-    --destructive: 0 65% 52%;
+    --destructive: 0 65% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 222 20% 17%;
-    --input: 222 20% 17%;
-    --ring: 239 84% 67%;
+    --border: 0 0% 16%;
+    --input: 0 0% 16%;
+    --ring: 160 70% 45%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
 
-    --success: 142 70% 45%;
+    --success: 160 70% 45%;
     --success-foreground: 0 0% 5%;
 
-    --terminal-bg: 222 30% 5%;
-    --terminal-border: 222 20% 18%;
-    --terminal-blue: 239 84% 67%;
+    --terminal-bg: 0 0% 7%;
+    --terminal-border: 0 0% 18%;
+    --terminal-green: 160 70% 50%;
   }
 }
 
@@ -58,7 +56,7 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: 'Inter', sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -71,79 +69,46 @@
 @layer utilities {
   .text-gradient-hero {
     @apply bg-clip-text text-transparent;
-    background-image: linear-gradient(135deg, hsl(239 84% 78%) 0%, hsl(260 70% 60%) 50%, hsl(200 80% 60%) 100%);
+    background-image: linear-gradient(135deg, hsl(160 70% 55%) 0%, hsl(160 50% 35%) 100%);
   }
 
   .glow-primary {
-    box-shadow: 0 0 30px -8px hsl(239 84% 67% / 0.4);
+    box-shadow: 0 0 30px -8px hsl(160 70% 45% / 0.3);
   }
 
   .glow-soft {
-    box-shadow: 0 0 60px -15px hsl(239 84% 67% / 0.08);
+    box-shadow: 0 0 60px -15px hsl(160 70% 45% / 0.06);
   }
 
   .terminal-window {
-    background: hsl(222 30% 5%);
-    border: 1px solid hsl(222 20% 18%);
+    background: hsl(0 0% 7%);
+    border: 1px solid hsl(0 0% 18%);
   }
 
   .terminal-dot-red { background: hsl(0 70% 55%); }
   .terminal-dot-yellow { background: hsl(40 80% 55%); }
-  .terminal-dot-green { background: hsl(142 60% 50%); }
+  .terminal-dot-green { background: hsl(160 70% 50%); }
 
-  /* Full-width sharp nav — not a pill like azkelx402 */
   .glass-nav {
-    background: hsl(222 30% 6% / 0.92);
+    background: hsl(0 0% 11% / 0.8);
     backdrop-filter: blur(20px);
-    border-bottom: 1px solid hsl(222 20% 14%);
+    border: 1px solid hsl(0 0% 18%);
   }
 
   .flow-line {
-    background: linear-gradient(180deg, hsl(239 84% 67% / 0.5), hsl(239 84% 67% / 0));
+    background: linear-gradient(180deg, hsl(160 70% 45% / 0.4), hsl(160 70% 45% / 0));
   }
 
   .divider-fade {
-    background: linear-gradient(90deg, transparent, hsl(222 20% 17%), transparent);
+    background: linear-gradient(90deg, transparent, hsl(0 0% 18%), transparent);
     height: 1px;
   }
 
-  /* Grid background pattern — replaces the empty space feel */
-  .grid-bg {
-    background-image:
-      linear-gradient(hsl(239 84% 67% / 0.03) 1px, transparent 1px),
-      linear-gradient(90deg, hsl(239 84% 67% / 0.03) 1px, transparent 1px);
-    background-size: 40px 40px;
-  }
-
-  /* Scanline overlay on terminal */
-  .scanlines::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 2px,
-      hsl(0 0% 0% / 0.03) 2px,
-      hsl(0 0% 0% / 0.03) 4px
-    );
-    pointer-events: none;
-  }
-
   .ascii-dots {
-    color: hsl(239 50% 65%);
+    color: hsl(0 0% 30%);
     font-family: 'JetBrains Mono', monospace;
     line-height: 1;
     letter-spacing: 0.1em;
-  }
-
-  /* Ticker strip */
-  @keyframes ticker-scroll {
-    from { transform: translateX(0); }
-    to { transform: translateX(-50%); }
-  }
-  .ticker-track {
-    animation: ticker-scroll 28s linear infinite;
   }
 
   @keyframes blink {
@@ -164,7 +129,7 @@
     animation: float-line 2s ease-in-out infinite;
   }
 
-  /* Sharp underline — thicker & blue tinted */
+  /* Smooth link underline on hover */
   .nav-link-underline {
     position: relative;
   }
@@ -178,34 +143,10 @@
     background: hsl(var(--primary));
     transform: scaleX(0);
     transform-origin: right;
-    transition: transform 0.25s ease;
+    transition: transform 0.3s ease;
   }
   .nav-link-underline:hover::after {
     transform: scaleX(1);
     transform-origin: left;
-  }
-
-  /* Corner bracket decoration */
-  .bracket-corner {
-    position: relative;
-  }
-  .bracket-corner::before,
-  .bracket-corner::after {
-    content: '';
-    position: absolute;
-    width: 8px;
-    height: 8px;
-    border-color: hsl(var(--primary) / 0.4);
-    border-style: solid;
-  }
-  .bracket-corner::before {
-    top: -1px;
-    left: -1px;
-    border-width: 1px 0 0 1px;
-  }
-  .bracket-corner::after {
-    bottom: -1px;
-    right: -1px;
-    border-width: 0 1px 1px 0;
   }
 }
