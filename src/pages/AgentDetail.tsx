@@ -204,6 +204,19 @@ const AgentDetail = () => {
   const [withdrawAddress, setWithdrawAddress] = useState("");
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [withdrawing, setWithdrawing] = useState(false);
+  const [recentTxs, setRecentTxs] = useState<any[]>([]);
+  const [txsLoading, setTxsLoading] = useState(false);
+
+  const fetchRecentTxs = useCallback(async (agentId: string) => {
+    setTxsLoading(true);
+    try {
+      const { data } = await supabase.functions.invoke("withdraw-sol", {
+        body: { action: "get_transactions", agent_id: agentId },
+      });
+      if (data?.transactions) setRecentTxs(data.transactions);
+    } catch { /* silent */ }
+    setTxsLoading(false);
+  }, []);
 
   const refreshBalance = useCallback(async () => {
     if (!wallet) return;
@@ -222,12 +235,14 @@ const AgentDetail = () => {
     setBalanceRefreshing(false);
   }, [wallet, id, toast]);
 
-  // Auto-refresh balance every 30s when on wallet tab
+  // Auto-refresh balance every 30s when on wallet tab, and fetch txs once
   useEffect(() => {
     if (tab !== "wallet" || !wallet) return;
+    const agentId = wallet.agent_id ?? id ?? "";
+    fetchRecentTxs(agentId);
     const interval = setInterval(() => refreshBalance(), 30000);
     return () => clearInterval(interval);
-  }, [tab, wallet, refreshBalance]);
+  }, [tab, wallet, refreshBalance, fetchRecentTxs, id]);
 
   const withdrawSol = useCallback(async () => {
     if (!wallet || !withdrawAddress.trim() || !withdrawAmount) return;
@@ -1007,6 +1022,77 @@ const AgentDetail = () => {
                       )}
                     </button>
                   </div>
+                </div>
+
+                {/* Recent Transactions */}
+                <div className="rounded-lg border border-border bg-secondary/20 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-3.5 w-3.5 text-primary" />
+                      <p className="text-xs font-mono font-medium">Recent Transactions</p>
+                    </div>
+                    <button
+                      onClick={() => fetchRecentTxs(wallet.agent_id ?? id ?? "")}
+                      disabled={txsLoading}
+                      className="text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                    >
+                      <RefreshCw className={`h-3 w-3 ${txsLoading ? "animate-spin" : ""}`} />
+                    </button>
+                  </div>
+                  {txsLoading ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : recentTxs.length === 0 ? (
+                    <p className="text-[10px] font-mono text-muted-foreground text-center py-3">No transactions yet</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {recentTxs.slice(0, 8).map((tx: any, i: number) => {
+                        const sig = tx.txHash || tx.signature || "";
+                        const ts = tx.blockTime ? new Date(tx.blockTime * 1000) : null;
+                        const ok = tx.status !== "fail" && !tx.err;
+                        const lamports = tx.lamport ?? tx.fee ?? null;
+                        return (
+                          <div key={sig || i} className="flex items-center justify-between py-2 border-b border-border/40 last:border-0">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${ok ? "bg-primary" : "bg-destructive"}`} />
+                              <div className="min-w-0">
+                                <a
+                                  href={`https://solscan.io/tx/${sig}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[10px] font-mono text-foreground hover:text-primary transition-colors truncate block max-w-[140px]"
+                                >
+                                  {sig.slice(0, 8)}...{sig.slice(-4)}
+                                </a>
+                                {ts && (
+                                  <p className="text-[9px] font-mono text-muted-foreground">
+                                    {ts.toLocaleString("en", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {lamports !== null && (
+                                <span className="text-[10px] font-mono text-muted-foreground">{(lamports / 1e9).toFixed(5)} SOL</span>
+                              )}
+                              <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded ${ok ? "bg-primary/10 text-primary" : "bg-destructive/10 text-destructive"}`}>
+                                {ok ? "ok" : "fail"}
+                              </span>
+                              <a
+                                href={`https://solscan.io/tx/${sig}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-muted-foreground hover:text-foreground transition-colors"
+                              >
+                                <ExternalLink className="h-2.5 w-2.5" />
+                              </a>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
