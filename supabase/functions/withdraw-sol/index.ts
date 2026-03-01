@@ -337,7 +337,7 @@ serve(async (req) => {
 
     // Get live on-chain balance
     const onChainBalance = await getSolBalance(wallet.public_key);
-    const FEE_RESERVE = 0.000005; // ~5000 lamports for tx fee
+    const FEE_RESERVE = 0.001; // rent-exempt minimum (~0.00089 SOL) + tx fee buffer
     const maxWithdraw = onChainBalance - FEE_RESERVE;
 
     if (amount_sol > maxWithdraw) {
