@@ -322,6 +322,33 @@ const AgentDetail = () => {
     return () => clearInterval(interval);
   }, [tab, wallet, refreshBalance, fetchRecentTxs, id]);
 
+  // Periodic on-chain sync: every 30s on positions tab, refresh wallet balance + positions
+  useEffect(() => {
+    if (tab !== "positions" || !id) return;
+    const sync = async () => {
+      // Refresh wallet balance
+      try {
+        const { data } = await supabase.functions.invoke("withdraw-sol", {
+          body: { action: "get_balance", agent_id: id },
+        });
+        if (data?.balance_sol !== undefined) {
+          setWallet(prev => prev ? { ...prev, balance_sol: data.balance_sol } : prev);
+        }
+      } catch { /* silent */ }
+      // Refresh open positions from DB
+      const { data: posData } = await supabase
+        .from("agent_positions")
+        .select("*")
+        .eq("agent_id", id)
+        .eq("status", "open")
+        .order("created_at", { ascending: false });
+      if (posData) setPositions(posData as Position[]);
+    };
+    sync();
+    const interval = setInterval(sync, 30000);
+    return () => clearInterval(interval);
+  }, [tab, id]);
+
   const withdrawSol = useCallback(async () => {
     if (!wallet || !withdrawAddress.trim() || !withdrawAmount) return;
     const amount = parseFloat(withdrawAmount);
@@ -382,7 +409,7 @@ const AgentDetail = () => {
   };
 
   const sellAll = async () => {
-    if (!agent || positions.length === 0) return;
+    if (!agent) return;
     setSellingAll(true);
     try {
       // Stop the agent first so it doesn't buy again immediately
@@ -760,16 +787,14 @@ const AgentDetail = () => {
                   {pricesLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Radio className="h-3 w-3" />}
                   Refresh prices
                 </button>
-                {positions.length > 0 && (
-                  <button
-                    onClick={sellAll}
-                    disabled={sellingAll}
-                    className="flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/20 transition-colors disabled:opacity-50"
-                  >
-                    {sellingAll ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowDownToLine className="h-3 w-3" />}
-                    Sell All
-                  </button>
-                )}
+                <button
+                  onClick={sellAll}
+                  disabled={sellingAll}
+                  className="flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/20 transition-colors disabled:opacity-50"
+                >
+                  {sellingAll ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowDownToLine className="h-3 w-3" />}
+                  Sell All
+                </button>
               </div>
             </div>
             {positions.length === 0 ? (
