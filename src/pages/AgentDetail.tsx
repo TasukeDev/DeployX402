@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, TrendingUp, TrendingDown, Play, Square, Loader2,
   Settings, BarChart3, Clock, Zap, Wallet, Copy, ExternalLink, GitFork, Radio,
-  Target, AlertTriangle, ArrowDownToLine,
+  Target, AlertTriangle, ArrowDownToLine, RefreshCw,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -188,6 +188,29 @@ const AgentDetail = () => {
 
     setLoading(false);
   };
+
+  const [balanceRefreshing, setBalanceRefreshing] = useState(false);
+
+  const refreshBalance = useCallback(async () => {
+    if (!wallet) return;
+    setBalanceRefreshing(true);
+    try {
+      const resp = await fetch("https://api.mainnet-beta.solana.com", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0", id: 1, method: "getBalance",
+          params: [wallet.public_key, { commitment: "confirmed" }],
+        }),
+      });
+      const json = await resp.json();
+      const lamports = json?.result?.value ?? 0;
+      setWallet(prev => prev ? { ...prev, balance_sol: lamports / 1_000_000_000 } : prev);
+    } catch {
+      toast({ title: "Failed to fetch balance", variant: "destructive" });
+    }
+    setBalanceRefreshing(false);
+  }, [wallet, toast]);
 
   const generateWallet = async () => {
     setWalletLoading(true);
@@ -829,9 +852,32 @@ const AgentDetail = () => {
                   </p>
                 </div>
 
+                {/* Funding warning */}
+                {wallet.balance_sol < 0.005 && (
+                  <div className="flex items-start gap-2.5 rounded-lg bg-destructive/10 border border-destructive/20 p-3">
+                    <span className="text-destructive mt-0.5 shrink-0">⚠</span>
+                    <div>
+                      <p className="text-[11px] font-mono font-semibold text-destructive">Insufficient balance to trade</p>
+                      <p className="text-[10px] font-mono text-destructive/80 mt-0.5">
+                        This agent needs at least <span className="font-bold">0.005 SOL</span> to start trading. Scan the QR code above or copy the deposit address and send SOL from any Solana wallet.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-lg bg-secondary/50 border border-border p-4">
-                    <p className="text-[10px] font-mono text-muted-foreground uppercase mb-1">Balance</p>
+                    <p className="text-[10px] font-mono text-muted-foreground uppercase mb-1 flex items-center justify-between">
+                      Balance
+                      <button
+                        onClick={refreshBalance}
+                        disabled={balanceRefreshing}
+                        className="text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                        title="Refresh balance"
+                      >
+                        <RefreshCw className={`h-3 w-3 ${balanceRefreshing ? "animate-spin" : ""}`} />
+                      </button>
+                    </p>
                     <p className="text-lg font-mono font-bold text-primary">{wallet.balance_sol.toFixed(4)} SOL</p>
                   </div>
                   <div className="rounded-lg bg-secondary/50 border border-border p-4">
