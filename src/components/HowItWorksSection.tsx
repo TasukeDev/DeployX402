@@ -1,63 +1,73 @@
 import { motion } from "framer-motion";
 
 const steps = [
-  { label: "Create Agent", sub: "Design strategy & personality", accent: true },
-  { label: "Fund Wallet", sub: "Deposit SOL", icon: "◎" },
-  { label: "Analyze", sub: "Market data + signals" },
-  { label: "Execute", sub: "Buy · Sell · Hold", accent: true },
-  { label: "On-Chain", sub: "Verifiable trades" },
+  { num: "01", label: "Create Agent", sub: "Design strategy & personality", accent: true },
+  { num: "02", label: "Fund Wallet", sub: "Deposit SOL", icon: "◎" },
+  { num: "03", label: "Analyze", sub: "Market data + signals" },
+  { num: "04", label: "Execute", sub: "Buy · Sell · Hold", accent: true },
+  { num: "05", label: "On-Chain", sub: "Verifiable trades" },
 ];
 
 const HowItWorksSection = () => {
   return (
-    <section id="how-it-works" className="py-28 px-6">
-      <div className="max-w-4xl mx-auto">
-        <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="mb-16"
-        >
-          <h2 className="text-2xl sm:text-3xl font-medium tracking-tight">
-            How it <em className="not-italic text-primary">works</em>
-          </h2>
-        </motion.div>
+    <section id="how-it-works" className="py-32 px-6 relative">
+      <div className="max-w-5xl mx-auto">
+        {/* Header row */}
+        <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-16 lg:gap-24 items-start mb-20">
+          <div className="hidden lg:flex flex-col items-center gap-3 pt-2">
+            <div className="h-8 w-px bg-primary/30" />
+            <span
+              className="text-[9px] font-mono uppercase tracking-[0.4em] text-muted-foreground"
+              style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
+            >
+              02 · Process
+            </span>
+          </div>
 
-        {/* Flow diagram */}
-        <div className="flex flex-col sm:flex-row items-stretch gap-0 sm:gap-0">
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+          >
+            <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-primary mb-4">How it works</p>
+            <h2 className="text-3xl sm:text-5xl font-mono font-bold tracking-tighter text-foreground leading-[1.1]">
+              Five steps<br />
+              <span className="text-primary">to autonomy</span>
+            </h2>
+          </motion.div>
+        </div>
+
+        {/* Steps — large numbered cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-5 gap-px bg-border">
           {steps.map((step, i) => (
             <motion.div
               key={step.label}
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.08 }}
-              className="flex-1 flex flex-col items-center relative"
-            >
-              {/* Connector line */}
-              {i < steps.length - 1 && (
-                <div className="hidden sm:block absolute top-6 right-0 w-full h-px bg-border z-0" style={{ left: '50%' }} />
-              )}
-
-              {/* Node */}
-              <motion.div
-                whileHover={{ scale: 1.1, transition: { duration: 0.2 } }}
-                className={`relative z-10 flex h-12 w-12 items-center justify-center rounded-xl border text-xs font-mono font-semibold transition-colors duration-300 ${
+              whileHover={{ y: -4 }}
+              className={`relative flex flex-col justify-between p-6 min-h-[180px] transition-colors duration-300 ${
                 step.accent
-                  ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20"
-                  : "border-border bg-card text-foreground hover:border-primary/30"
-              }`}>
-                {step.icon || step.label.charAt(0)}
-              </motion.div>
+                  ? "bg-primary/[0.06] hover:bg-primary/10"
+                  : "bg-card hover:bg-secondary/40"
+              }`}
+            >
+              {/* Big number */}
+              <span className="text-5xl font-mono font-bold text-foreground/[0.06] leading-none select-none">
+                {step.num}
+              </span>
 
-              <div className="mt-3 text-center">
-                <p className="text-xs font-mono font-medium text-foreground">{step.label}</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">{step.sub}</p>
+              <div className="mt-auto">
+                <p className={`text-xs font-mono font-semibold mb-1 ${step.accent ? "text-primary" : "text-foreground"}`}>
+                  {step.icon || "◆"} {step.label}
+                </p>
+                <p className="text-[10px] text-muted-foreground font-mono">{step.sub}</p>
               </div>
 
-              {/* Vertical connector for mobile */}
-              {i < steps.length - 1 && (
-                <div className="sm:hidden w-px h-6 bg-border my-2" />
+              {/* Bottom accent bar */}
+              {step.accent && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary/40" />
               )}
             </motion.div>
           ))}
@@ -68,7 +78,7 @@ const HowItWorksSection = () => {
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
-          className="text-sm text-muted-foreground mt-12 max-w-lg leading-relaxed"
+          className="text-sm text-muted-foreground mt-8 max-w-lg leading-relaxed font-mono border-l border-border pl-4"
         >
           Design your agent's trading strategy — choose from Scalper, Swing Trader, DCA, Sniper, 
           or fully custom. Fund it with SOL and watch it trade autonomously on Solana mainnet.
