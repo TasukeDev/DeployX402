@@ -128,12 +128,30 @@ const Dashboard = () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { toast({ title: "Error", description: "Not authenticated", variant: "destructive" }); setCreating(false); return; }
     const name = `${agentType}-${Date.now().toString(36).slice(-4)}`;
-    const { error } = await supabase.from("agents").insert({
+    const { data: newAgent, error } = await supabase.from("agents").insert({
       name, category: agentType, model: "risk:medium",
       system_prompt: null, user_id: user.id, status: "stopped",
-    });
-    if (error) toast({ title: "Deploy failed", description: error.message, variant: "destructive" });
-    else { toast({ title: "Agent created!", description: `${name} is ready.` }); setAgentType(""); fetchAgents(); }
+    }).select("id").single();
+    if (error) {
+      toast({ title: "Deploy failed", description: error.message, variant: "destructive" });
+    } else {
+      // Auto-generate wallet for the new agent
+      try {
+        const { data: walletData } = await supabase.functions.invoke("generate-wallet", {
+          body: { agent_id: newAgent.id },
+        });
+        toast({
+          title: "Agent deployed!",
+          description: walletData?.public_key
+            ? `${name} · Wallet: ${walletData.public_key.slice(0, 6)}...${walletData.public_key.slice(-4)}`
+            : `${name} is ready.`,
+        });
+      } catch {
+        toast({ title: "Agent created!", description: `${name} is ready. Generate a wallet from the agent detail page.` });
+      }
+      setAgentType("");
+      fetchAgents();
+    }
     setCreating(false);
   };
 

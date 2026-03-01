@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, TrendingUp, Play, Square, Loader2,
   Settings, BarChart3, Clock, Zap, Wallet, Copy, ExternalLink, GitFork, Radio,
+  Target, TrendingDown, AlertTriangle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -36,6 +37,22 @@ interface AgentWallet {
   balance_sol: number;
 }
 
+interface Position {
+  id: string;
+  token_symbol: string;
+  token_address: string;
+  entry_price: number;
+  entry_amount_sol: number;
+  token_amount: number;
+  status: string;
+  pnl_sol: number | null;
+  created_at: string;
+  buy_tx_signature: string | null;
+}
+
+const TAKE_PROFIT_PCT = 0.05;
+const STOP_LOSS_PCT = -0.03;
+
 const AgentDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -50,7 +67,10 @@ const AgentDetail = () => {
   const [loading, setLoading] = useState(true);
   const [copying, setCopying] = useState(false);
   const [liveIndicator, setLiveIndicator] = useState(false);
-  const [tab, setTab] = useState<"pnl" | "trades" | "config" | "wallet">("pnl");
+  const [tab, setTab] = useState<"pnl" | "trades" | "positions" | "config" | "wallet">("pnl");
+  const [positions, setPositions] = useState<Position[]>([]);
+  const [positionPrices, setPositionPrices] = useState<Record<string, number>>({});
+  const [pricesLoading, setPricesLoading] = useState(false);
   const tradesRef = useRef<Trade[]>([]);
   tradesRef.current = trades;
 
@@ -77,6 +97,18 @@ const AgentDetail = () => {
           setTimeout(() => {
             setNewTradeIds((prev) => { const s = new Set(prev); s.delete(newTrade.id); return s; });
           }, 3000);
+          // Toast alert for TP/SL triggered sells
+          if (newTrade.action === "sell" && newTrade.signal) {
+            const isTp = newTrade.signal.includes("take-profit");
+            const isSl = newTrade.signal.includes("stop-loss");
+            if (isTp || isSl) {
+              toast({
+                title: isTp ? "🎯 Take-Profit Triggered!" : "🛑 Stop-Loss Triggered",
+                description: `${newTrade.token_symbol} sold · PnL: ${newTrade.pnl_sol >= 0 ? "+" : ""}${newTrade.pnl_sol?.toFixed(4)} SOL · ${newTrade.signal}`,
+                variant: isTp ? "default" : "destructive",
+              });
+            }
+          }
         }
       )
       .on(
@@ -91,25 +123,45 @@ const AgentDetail = () => {
           });
         }
       )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "agent_positions", filter: `agent_id=eq.${id}` },
+        (payload) => {
+          const updated = payload.new as Position;
+          setPositions((prev) =>
+            updated.status === "closed"
+              ? prev.filter((p) => p.id !== updated.id)
+              : prev.map((p) => (p.id === updated.id ? updated : p))
+          );
+        }
+      )
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
   }, [id]);
 
   const fetchAll = async () => {
+    const session = await supabase.auth.getSession();
+    const token = session.data.session?.access_token;
+
     const [agentRes, tradesRes, snapshotsRes] = await Promise.all([
       supabase.from("agents").select("*").eq("id", id!).single(),
       supabase.from("trade_history").select("*").eq("agent_id", id!).order("created_at", { ascending: false }).limit(50),
       supabase.from("pnl_snapshots").select("*").eq("agent_id", id!).order("snapshot_at", { ascending: true }),
     ]);
 
-    // Fetch wallet separately
-    const walletRes = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/agent_wallets?agent_id=eq.${id}&select=public_key,balance_sol&limit=1`,
-      { headers: { apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` } }
-    );
+    // Fetch wallet and open positions in parallel
+    const [walletRes, positionsRes] = await Promise.all([
+      fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/agent_wallets?agent_id=eq.${id}&select=public_key,balance_sol&limit=1`,
+        { headers: { apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, Authorization: `Bearer ${token}` } }
+      ),
+      supabase.from("agent_positions").select("*").eq("agent_id", id!).eq("status", "open").order("created_at", { ascending: false }),
+    ]);
+
     const walletData = await walletRes.json();
     if (Array.isArray(walletData) && walletData.length > 0) setWallet(walletData[0] as AgentWallet);
+    if (positionsRes.data) setPositions(positionsRes.data as Position[]);
 
     if (agentRes.error) {
       toast({ title: "Agent not found", variant: "destructive" });
@@ -150,6 +202,25 @@ const AgentDetail = () => {
       toast({ title: "Error", description: e.message, variant: "destructive" });
     }
     setWalletLoading(false);
+  };
+
+  // Fetch current prices for open positions from DexScreener
+  const fetchCurrentPrices = async (positionList: Position[]) => {
+    if (positionList.length === 0) return;
+    setPricesLoading(true);
+    const prices: Record<string, number> = {};
+    await Promise.allSettled(
+      positionList.map(async (pos) => {
+        try {
+          const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${pos.token_address}`);
+          const data = await res.json();
+          const pair = data.pairs?.[0];
+          if (pair?.priceUsd) prices[pos.id] = parseFloat(pair.priceUsd);
+        } catch { /* silent */ }
+      })
+    );
+    setPositionPrices(prices);
+    setPricesLoading(false);
   };
 
   const handleCopyTrade = async () => {
@@ -310,12 +381,16 @@ const AgentDetail = () => {
           {([
             { key: "pnl", label: "PnL Chart", icon: TrendingUp },
             { key: "trades", label: "Trade History", icon: Clock },
+            { key: "positions", label: "Positions", icon: Target },
             { key: "wallet", label: "Wallet", icon: Wallet },
             { key: "config", label: "Strategy", icon: Settings },
           ] as const).map((t) => (
             <button
               key={t.key}
-              onClick={() => setTab(t.key)}
+              onClick={() => {
+                setTab(t.key);
+                if (t.key === "positions") fetchCurrentPrices(positions);
+              }}
               className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-mono transition-colors border-b-2 -mb-px whitespace-nowrap ${
                 tab === t.key ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
               }`}
@@ -324,6 +399,9 @@ const AgentDetail = () => {
               {t.label}
               {t.key === "trades" && liveIndicator && (
                 <span className="ml-1 h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+              )}
+              {t.key === "positions" && positions.length > 0 && (
+                <span className="ml-1 px-1 py-0.5 rounded bg-primary/20 text-primary text-[9px] font-mono">{positions.length}</span>
               )}
             </button>
           ))}
@@ -469,6 +547,117 @@ const AgentDetail = () => {
                   })}
                 </AnimatePresence>
               </>
+            )}
+          </motion.div>
+        )}
+
+        {/* Open Positions */}
+        {tab === "positions" && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Open Positions</span>
+              <button
+                onClick={() => fetchCurrentPrices(positions)}
+                disabled={pricesLoading}
+                className="flex items-center gap-1 text-[10px] font-mono text-muted-foreground hover:text-primary transition-colors"
+              >
+                {pricesLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Radio className="h-3 w-3" />}
+                Refresh prices
+              </button>
+            </div>
+            {positions.length === 0 ? (
+              <div className="text-center py-16 rounded-xl border border-dashed border-border">
+                <Target className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground font-mono">No open positions</p>
+                <p className="text-[11px] text-muted-foreground font-mono mt-1">Positions appear here when the agent buys a token.</p>
+              </div>
+            ) : (
+              positions.map((pos) => {
+                const currentPrice = positionPrices[pos.id];
+                const priceChange = currentPrice ? (currentPrice - pos.entry_price) / pos.entry_price : null;
+                const unrealizedPnl = priceChange !== null ? priceChange * pos.entry_amount_sol : null;
+                const tpDist = TAKE_PROFIT_PCT - (priceChange ?? 0);
+                const slDist = (priceChange ?? 0) - STOP_LOSS_PCT;
+                const pnlColor = unrealizedPnl === null ? "text-muted-foreground" : unrealizedPnl >= 0 ? "text-primary" : "text-destructive";
+                return (
+                  <motion.div
+                    key={pos.id}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="rounded-xl border border-border bg-card p-4 space-y-3"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-mono font-bold">{pos.token_symbol}</span>
+                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">OPEN</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-sm font-mono font-bold ${pnlColor}`}>
+                          {unrealizedPnl === null ? "—" : `${unrealizedPnl >= 0 ? "+" : ""}${unrealizedPnl.toFixed(4)} SOL`}
+                        </span>
+                        {pos.buy_tx_signature && (
+                          <a href={`https://solscan.io/tx/${pos.buy_tx_signature}`} target="_blank" rel="noopener noreferrer"
+                            className="text-muted-foreground hover:text-primary transition-colors" title="View entry tx">
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Price info */}
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="rounded-lg bg-secondary/40 p-2.5">
+                        <p className="text-[9px] font-mono text-muted-foreground uppercase mb-0.5">Entry</p>
+                        <p className="text-[11px] font-mono">${pos.entry_price.toFixed(6)}</p>
+                      </div>
+                      <div className="rounded-lg bg-secondary/40 p-2.5">
+                        <p className="text-[9px] font-mono text-muted-foreground uppercase mb-0.5">Current</p>
+                        <p className={`text-[11px] font-mono ${pnlColor}`}>
+                          {currentPrice ? `$${currentPrice.toFixed(6)}` : "—"}
+                        </p>
+                      </div>
+                      <div className="rounded-lg bg-secondary/40 p-2.5">
+                        <p className="text-[9px] font-mono text-muted-foreground uppercase mb-0.5">Change</p>
+                        <p className={`text-[11px] font-mono ${pnlColor}`}>
+                          {priceChange !== null ? `${priceChange >= 0 ? "+" : ""}${(priceChange * 100).toFixed(2)}%` : "—"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* TP/SL progress bar */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between text-[9px] font-mono text-muted-foreground">
+                        <span className="flex items-center gap-1"><AlertTriangle className="h-2.5 w-2.5 text-destructive" /> SL {(STOP_LOSS_PCT * 100).toFixed(0)}%</span>
+                        <span className="text-primary/60">{pos.entry_amount_sol.toFixed(3)} SOL in</span>
+                        <span className="flex items-center gap-1"><TrendingUp className="h-2.5 w-2.5 text-primary" /> TP +{(TAKE_PROFIT_PCT * 100).toFixed(0)}%</span>
+                      </div>
+                      <div className="relative h-1.5 rounded-full bg-secondary overflow-hidden">
+                        {/* Full range bar: SL=-3% to TP=+5%, total span = 8% */}
+                        {priceChange !== null && (
+                          <div
+                            className={`absolute left-0 top-0 h-full rounded-full transition-all duration-500 ${priceChange >= 0 ? "bg-primary" : "bg-destructive"}`}
+                            style={{
+                              width: `${Math.max(2, Math.min(100, ((priceChange - STOP_LOSS_PCT) / (TAKE_PROFIT_PCT - STOP_LOSS_PCT)) * 100))}%`,
+                            }}
+                          />
+                        )}
+                        {/* TP marker */}
+                        <div className="absolute right-0 top-0 h-full w-0.5 bg-primary/40" />
+                      </div>
+                      {priceChange !== null && (
+                        <div className="flex items-center justify-between text-[9px] font-mono text-muted-foreground">
+                          <span className="text-destructive">SL in {(slDist * 100).toFixed(1)}%</span>
+                          <span className="text-primary">TP in {(tpDist * 100).toFixed(1)}%</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <p className="text-[9px] font-mono text-muted-foreground">
+                      Opened {new Date(pos.created_at).toLocaleString("en", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                  </motion.div>
+                );
+              })
             )}
           </motion.div>
         )}
