@@ -52,7 +52,7 @@ const Navbar = () => {
       ) : (
         <button onClick={() => navigate("/auth")} className="text-xs font-mono text-primary hover:text-primary/80 transition-colors flex items-center gap-1.5">
           <Wallet className="h-3 w-3" />
-          Launch
+          {userDisplay ? userDisplay.split("@")[0] : "Sign in"}
         </button>
       )}
     </nav>

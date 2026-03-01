@@ -53,11 +53,12 @@ const HeroSection = () => {
         >
           {/* ASCII-style logo */}
           <div className="mb-8">
-            <pre className="ascii-dots text-2xl sm:text-3xl leading-tight select-none">
-{`  ___  ___  _    
- / __|/ _ \\| |   
- \\__ \\ (_) | |__ 
- |___/\\___/|____| agent`}
+            <pre className="ascii-dots text-lg sm:text-xl leading-tight select-none">
+{` ___            _        __  __  ___ ___ ___ 
+|   \\ ___ _ __ | |___ _  \\ \\/ / /   \\  /  _ \\
+| |) / -_) '_ \\| / _ \\ |  >  < | |) / /| (_) |
+|___/\\___| .__/|_\\___/_| /_/\\_\\|___/_/  \\___/  
+         |_|                       agent`}
             </pre>
           </div>
 
