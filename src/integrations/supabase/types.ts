@@ -90,6 +90,65 @@ export type Database = {
           },
         ]
       }
+      agent_positions: {
+        Row: {
+          agent_id: string
+          buy_tx_signature: string | null
+          closed_at: string | null
+          created_at: string
+          entry_amount_sol: number
+          entry_price: number
+          exit_price: number | null
+          id: string
+          pnl_sol: number | null
+          status: string
+          token_address: string
+          token_amount: number
+          token_symbol: string
+          user_id: string
+        }
+        Insert: {
+          agent_id: string
+          buy_tx_signature?: string | null
+          closed_at?: string | null
+          created_at?: string
+          entry_amount_sol?: number
+          entry_price?: number
+          exit_price?: number | null
+          id?: string
+          pnl_sol?: number | null
+          status?: string
+          token_address: string
+          token_amount?: number
+          token_symbol: string
+          user_id: string
+        }
+        Update: {
+          agent_id?: string
+          buy_tx_signature?: string | null
+          closed_at?: string | null
+          created_at?: string
+          entry_amount_sol?: number
+          entry_price?: number
+          exit_price?: number | null
+          id?: string
+          pnl_sol?: number | null
+          status?: string
+          token_address?: string
+          token_amount?: number
+          token_symbol?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_positions_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agents: {
         Row: {
           category: string
@@ -180,6 +239,7 @@ export type Database = {
           token_address: string | null
           token_amount: number
           token_symbol: string
+          tx_signature: string | null
           user_id: string
         }
         Insert: {
@@ -194,6 +254,7 @@ export type Database = {
           token_address?: string | null
           token_amount?: number
           token_symbol: string
+          tx_signature?: string | null
           user_id: string
         }
         Update: {
@@ -208,6 +269,7 @@ export type Database = {
           token_address?: string | null
           token_amount?: number
           token_symbol?: string
+          tx_signature?: string | null
           user_id?: string
         }
         Relationships: [
