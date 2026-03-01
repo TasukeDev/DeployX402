@@ -4,6 +4,7 @@ import { useWallet } from "@/components/WalletContext";
 import { useAuth } from "@/components/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { useLiveStats } from "@/hooks/useLiveStats";
 
 const TERMINAL_LINES = [
   { type: "prompt", text: "$ deployx402 init" },
@@ -17,17 +18,31 @@ const TERMINAL_LINES = [
   { type: "success", text: "  ✓ Agent deployed. Watching for launches..." },
 ];
 
-const STATS = [
-  { value: "24/7", label: "Uptime" },
-  { value: "On-Chain", label: "Verifiable" },
-  { value: "Free", label: "Always" },
-];
+function useCountUp(target: number, duration = 1200, loaded = false) {
+  const [val, setVal] = useState(0);
+  useEffect(() => {
+    if (!loaded || target === 0) return;
+    let start = 0;
+    const step = Math.ceil(target / (duration / 16));
+    const id = setInterval(() => {
+      start += step;
+      if (start >= target) { setVal(target); clearInterval(id); }
+      else setVal(start);
+    }, 16);
+    return () => clearInterval(id);
+  }, [target, loaded]);
+  return val;
+}
 
 const HeroSection = () => {
   const { connect, connected } = useWallet();
   const { authenticated } = useAuth();
   const navigate = useNavigate();
   const [lines, setLines] = useState<typeof TERMINAL_LINES>([]);
+  const liveStats = useLiveStats();
+  const agentsCount = useCountUp(liveStats.totalAgents, 1000, liveStats.loaded);
+  const tradesCount = useCountUp(liveStats.totalTrades, 1400, liveStats.loaded);
+  const volumeCount = useCountUp(Math.round(liveStats.totalVolumeSol * 100), 1600, liveStats.loaded);
 
   useEffect(() => {
     let i = 0;
@@ -86,9 +101,13 @@ const HeroSection = () => {
             transition={{ delay: 0.3 }}
             className="flex items-center gap-6"
           >
-            {STATS.map((s) => (
+            {[
+              { value: agentsCount.toString(), label: "Agents" },
+              { value: tradesCount.toLocaleString(), label: "Trades" },
+              { value: `${(volumeCount / 100).toFixed(1)} SOL`, label: "Volume" },
+            ].map((s) => (
               <div key={s.label} className="flex flex-col items-end">
-                <span className="text-sm font-mono font-semibold text-foreground">{s.value}</span>
+                <span className="text-sm font-mono font-semibold text-foreground tabular-nums">{s.value}</span>
                 <span className="text-[9px] font-mono text-muted-foreground uppercase tracking-widest">{s.label}</span>
               </div>
             ))}

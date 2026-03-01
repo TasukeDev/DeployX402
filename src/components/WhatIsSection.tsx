@@ -7,6 +7,21 @@ const BULLETS = [
   "Every trade is verifiable on-chain",
 ];
 
+const containerVariants = {
+  hidden: {},
+  show: {
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.15,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 18 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.55, ease: "easeOut" as const } },
+};
+
 const WhatIsSection = () => {
   return (
     <section className="py-32 px-6 relative overflow-hidden">
@@ -32,33 +47,30 @@ const WhatIsSection = () => {
 
         {/* Right: content */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
+          variants={containerVariants}
+          initial="hidden"
+          whileInView="show"
           viewport={{ once: true, margin: "-80px" }}
-          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
           className="space-y-10"
         >
-          <div>
+          <motion.div variants={itemVariants}>
             <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-primary mb-4">What is</p>
             <h2 className="text-3xl sm:text-5xl font-mono font-bold tracking-tighter text-foreground leading-[1.1]">
               Deploy<span className="text-primary">X402</span>
             </h2>
-          </div>
+          </motion.div>
 
-          <p className="text-sm sm:text-base text-muted-foreground leading-relaxed max-w-xl">
+          <motion.p variants={itemVariants} className="text-sm sm:text-base text-muted-foreground leading-relaxed max-w-xl">
             DeployX402 creates autonomous AI trading agents on Solana. Each agent has its own 
             trading strategy, risk profile, and wallet. Connect your wallet, fund an agent, and let it trade for you. Completely free.
-          </p>
+          </motion.p>
 
           {/* Bullet list with accent markers */}
           <ul className="space-y-4">
             {BULLETS.map((b, i) => (
               <motion.li
                 key={i}
-                initial={{ opacity: 0, x: -10 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.07 }}
+                variants={itemVariants}
                 className="flex items-start gap-3"
               >
                 <span className="mt-1 flex-shrink-0 h-1.5 w-1.5 rounded-full bg-primary" />

@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Bot, TrendingUp, Copy, Users, Search, Loader2 } from "lucide-react";
+import { ArrowLeft, Bot, Copy, Users, Search, Loader2, MessageCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import { AgentChat } from "@/components/AgentChat";
 
 interface PublicAgent {
   id: string;
@@ -22,6 +23,7 @@ const BrowseAgents = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
+  const [chatAgent, setChatAgent] = useState<PublicAgent | null>(null);
 
   useEffect(() => {
     fetchPublicAgents();
@@ -31,7 +33,7 @@ const BrowseAgents = () => {
     const { data, error } = await supabase
       .from("agents")
       .select("id, name, category, model, status, created_at")
-      .eq("is_public", true)
+      .or("is_public.eq.true")
       .order("created_at", { ascending: false });
     if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
     else setAgents(data || []);
@@ -195,17 +197,51 @@ const BrowseAgents = () => {
                   </div>
 
                   <button
-                    onClick={() => navigate(`/agent/${agent.id}`)}
-                    className="mt-3 text-[10px] font-mono text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    view details →
-                  </button>
-                </motion.div>
+                      onClick={() => navigate(`/agent/${agent.id}`)}
+                      className="mt-3 text-[10px] font-mono text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      view details →
+                    </button>
+                    <button
+                      onClick={() => setChatAgent(agent)}
+                      className="mt-2 flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      <MessageCircle className="h-3 w-3" /> chat with agent →
+                    </button>
+                  </motion.div>
               );
             })}
           </div>
         )}
       </div>
+
+      {/* Chat modal overlay */}
+      <AnimatePresence>
+        {chatAgent && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-background/80 backdrop-blur-sm p-4"
+            onClick={() => setChatAgent(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 30, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 30, scale: 0.97 }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="w-full max-w-lg"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <AgentChat
+                agentId={chatAgent.id}
+                agentName={chatAgent.name}
+                onClose={() => setChatAgent(null)}
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

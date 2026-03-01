@@ -174,6 +174,7 @@ const Dashboard = () => {
     const { data: newAgent, error } = await supabase.from("agents").insert({
       name, category: agentType, model: "risk:medium",
       system_prompt: null, user_id: user.id, status: "stopped",
+      is_public: true,
     }).select("id").single();
     if (error) {
       toast({ title: "Deploy failed", description: error.message, variant: "destructive" });
