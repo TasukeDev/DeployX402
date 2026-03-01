@@ -33,6 +33,7 @@ const AgentNetwork = ({ agents }: AgentNetworkProps) => {
     initialNodes.forEach((n) => { initial[n.id] = { x: n.x, y: n.y }; });
     return initial;
   });
+  const [centerPos, setCenterPos] = useState({ x: centerX, y: centerY });
 
   const getNodePos = useCallback((node: NodePos) => nodePositions[node.id] || { x: node.x, y: node.y }, [nodePositions]);
 
@@ -55,15 +56,15 @@ const AgentNetwork = ({ agents }: AgentNetworkProps) => {
           backgroundSize: '20px 20px',
         }}
       >
-        {/* Connection lines */}
+        {/* Connection lines — update dynamically with centerPos */}
         <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 0 }}>
           {initialNodes.map((node) => {
             const pos = getNodePos(node);
             return (
               <line
                 key={`line-${node.id}`}
-                x1={centerX}
-                y1={centerY}
+                x1={centerPos.x}
+                y1={centerPos.y}
                 x2={pos.x}
                 y2={pos.y}
                 stroke="hsl(var(--border))"
@@ -75,17 +76,36 @@ const AgentNetwork = ({ agents }: AgentNetworkProps) => {
           })}
         </svg>
 
-        {/* Center node — text logo */}
+        {/* Center node — draggable DX402 */}
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           transition={{ type: "spring", stiffness: 200, delay: 0.1 }}
-          className="absolute z-20"
-          style={{ left: centerX - 20, top: centerY - 20 }}
+          drag
+          dragMomentum={false}
+          dragElastic={0}
+          dragConstraints={containerRef}
+          onDrag={(_e, info) => {
+            setCenterPos((prev) => ({
+              x: prev.x + info.delta.x,
+              y: prev.y + info.delta.y,
+            }));
+          }}
+          className="absolute z-20 cursor-grab active:cursor-grabbing"
+          style={{ left: centerPos.x - 28, top: centerPos.y - 28 }}
+          whileHover={{ scale: 1.08 }}
+          whileTap={{ scale: 0.96 }}
         >
-          <div className="h-10 w-10 flex flex-col items-center justify-center rounded-full border border-primary/50 bg-card shadow-[0_0_14px_hsl(var(--primary)/0.35)]">
-            <span className="text-primary font-mono text-sm font-bold leading-none">◆</span>
-            <span className="text-[7px] font-mono font-bold text-primary leading-tight">DX402</span>
+          {/* Outer glow ring */}
+          <div className="relative h-14 w-14 flex items-center justify-center">
+            <div className="absolute inset-0 rounded-full border-2 border-primary/30 shadow-[0_0_18px_hsl(var(--primary)/0.25)]" />
+            <div className="absolute inset-1 rounded-full border border-primary/20" />
+            <div className="h-10 w-10 rounded-full border border-primary/60 bg-card flex flex-col items-center justify-center shadow-[0_0_14px_hsl(var(--primary)/0.4)] gap-0.5">
+              <span className="text-primary font-mono text-xs font-bold leading-none">◆</span>
+              <span className="text-[7px] font-mono font-bold text-primary leading-tight tracking-wide">DX402</span>
+            </div>
+            {/* Animated ping */}
+            <span className="absolute inset-0 rounded-full border border-primary/20 animate-ping opacity-30" />
           </div>
         </motion.div>
 
