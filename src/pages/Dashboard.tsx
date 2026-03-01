@@ -164,6 +164,8 @@ const Dashboard = () => {
                 {balance !== null && <span className="text-[10px] font-mono text-primary">{balance.toFixed(2)} SOL</span>}
                 <button onClick={disconnect} className="text-[10px] font-mono text-muted-foreground hover:text-foreground ml-1">disconnect</button>
               </>
+            ) : authenticated ? (
+              <button onClick={() => supabase.auth.signOut()} className="text-[10px] font-mono text-muted-foreground hover:text-foreground transition-colors">sign out</button>
             ) : (
               <button onClick={() => navigate("/auth")} className="px-4 py-1.5 rounded-full border border-border text-xs font-mono text-foreground hover:bg-secondary transition-colors">
                 Sign in
