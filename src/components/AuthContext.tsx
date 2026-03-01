@@ -49,8 +49,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const authenticated = !!user;
   const userDisplay = user?.email ?? (authenticated ? "Signed in" : null);
 
-  if (loading) return null;
-
   return (
     <AuthContext.Provider value={{ login, logout, authenticated, userDisplay, user }}>
       {children}
