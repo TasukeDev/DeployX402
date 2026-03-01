@@ -149,6 +149,44 @@ export type Database = {
           },
         ]
       }
+      agent_wallets: {
+        Row: {
+          agent_id: string
+          balance_sol: number
+          created_at: string
+          encrypted_private_key: string
+          id: string
+          public_key: string
+          user_id: string
+        }
+        Insert: {
+          agent_id: string
+          balance_sol?: number
+          created_at?: string
+          encrypted_private_key: string
+          id?: string
+          public_key: string
+          user_id: string
+        }
+        Update: {
+          agent_id?: string
+          balance_sol?: number
+          created_at?: string
+          encrypted_private_key?: string
+          id?: string
+          public_key?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_wallets_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agents: {
         Row: {
           category: string

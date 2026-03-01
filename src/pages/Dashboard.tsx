@@ -394,8 +394,23 @@ const Dashboard = () => {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.35 + i * 0.04 }}
                       whileHover={{ y: -2, transition: { duration: 0.15 } }}
-                      className="relative rounded-xl border border-border bg-card p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 transition-colors duration-200 hover:border-primary/20 overflow-hidden"
+                      className={`relative rounded-xl border border-border bg-card flex flex-col transition-colors duration-200 hover:border-primary/20 overflow-hidden ${agentWallet && agentWallet.balance_sol < 0.005 ? "border-destructive/30" : ""}`}
                     >
+                      <div className={`p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${agentWallet && agentWallet.balance_sol < 0.005 ? "pt-8" : ""}`}>
+                      {/* Needs Funding banner */}
+                      {agentWallet && agentWallet.balance_sol < 0.005 && (
+                        <div className="absolute top-0 left-0 right-0 flex items-center gap-1.5 bg-destructive/10 border-b border-destructive/20 px-4 py-1">
+                          <Wallet className="h-2.5 w-2.5 text-destructive shrink-0" />
+                          <span className="text-[9px] font-mono text-destructive">Needs funding — </span>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); navigate(`/agent/${agent.id}?tab=wallet`); }}
+                            className="text-[9px] font-mono text-destructive underline underline-offset-2 hover:text-destructive/80 transition-colors"
+                          >
+                            Add SOL →
+                          </button>
+                        </div>
+                      )}
+
                       {/* Agent icon watermark */}
                       <span className={`absolute left-5 top-1/2 -translate-y-1/2 font-mono text-2xl pointer-events-none ${isRunning ? "text-primary/15" : "text-muted-foreground/10"}`}>◆</span>
 
@@ -462,6 +477,7 @@ const Dashboard = () => {
                         <button onClick={() => deleteAgent(agent.id)} disabled={actingOn === agent.id} className="p-1.5 rounded-md text-destructive/60 hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50">
                           <Trash2 className="h-3 w-3" />
                         </button>
+                      </div>
                       </div>
                     </motion.div>
                   );
