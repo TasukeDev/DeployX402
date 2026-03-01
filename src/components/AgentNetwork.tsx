@@ -1,7 +1,5 @@
 import { motion } from "framer-motion";
-import { Bot } from "lucide-react";
 import { useState, useRef, useCallback } from "react";
-
 
 interface AgentNetworkProps {
   agents: { id: string; name: string; status: string }[];
@@ -30,18 +28,13 @@ const AgentNetwork = ({ agents }: AgentNetworkProps) => {
     };
   });
 
-  const [nodePositions, setNodePositions] = useState<Record<string, { x: number; y: number }>>({});
+  const [nodePositions, setNodePositions] = useState<Record<string, { x: number; y: number }>>(() => {
+    const initial: Record<string, { x: number; y: number }> = {};
+    initialNodes.forEach((n) => { initial[n.id] = { x: n.x, y: n.y }; });
+    return initial;
+  });
 
-  const getNodePos = (node: NodePos) => nodePositions[node.id] || { x: node.x, y: node.y };
-
-  const handleDrag = useCallback((id: string, info: { point: { x: number; y: number } }, element: HTMLElement) => {
-    const container = containerRef.current;
-    if (!container) return;
-    const rect = container.getBoundingClientRect();
-    const x = info.point.x - rect.left;
-    const y = info.point.y - rect.top;
-    setNodePositions((prev) => ({ ...prev, [id]: { x, y } }));
-  }, []);
+  const getNodePos = useCallback((node: NodePos) => nodePositions[node.id] || { x: node.x, y: node.y }, [nodePositions]);
 
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
@@ -62,7 +55,7 @@ const AgentNetwork = ({ agents }: AgentNetworkProps) => {
           backgroundSize: '20px 20px',
         }}
       >
-        {/* Connection lines (SVG re-renders on drag) */}
+        {/* Connection lines */}
         <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 0 }}>
           {initialNodes.map((node) => {
             const pos = getNodePos(node);
@@ -88,11 +81,11 @@ const AgentNetwork = ({ agents }: AgentNetworkProps) => {
           animate={{ scale: 1 }}
           transition={{ type: "spring", stiffness: 200, delay: 0.1 }}
           className="absolute z-20"
-          style={{ left: centerX - 28, top: centerY - 20 }}
+          style={{ left: centerX - 20, top: centerY - 20 }}
         >
-          <div className="flex flex-col items-center justify-center drop-shadow-[0_0_12px_hsl(var(--primary)/0.5)]">
-            <span className="text-primary font-mono text-xs font-bold leading-none">◆</span>
-            <span className="text-[9px] font-mono font-bold text-primary leading-tight whitespace-nowrap mt-0.5">DX402</span>
+          <div className="h-10 w-10 flex flex-col items-center justify-center rounded-full border border-primary/50 bg-card shadow-[0_0_14px_hsl(var(--primary)/0.35)]">
+            <span className="text-primary font-mono text-sm font-bold leading-none">◆</span>
+            <span className="text-[7px] font-mono font-bold text-primary leading-tight">DX402</span>
           </div>
         </motion.div>
 
@@ -102,33 +95,32 @@ const AgentNetwork = ({ agents }: AgentNetworkProps) => {
           return (
             <motion.div
               key={node.id}
-              initial={{ scale: 0, opacity: 0, x: node.x - 20, y: node.y - 20 }}
-              animate={{ scale: 1, opacity: 1, x: pos.x - 20, y: pos.y - 20 }}
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
               transition={{ type: "spring", stiffness: 200, delay: 0.3 + i * 0.08 }}
               drag
               dragMomentum={false}
               dragElastic={0}
               dragConstraints={containerRef}
-              onDrag={(e) => {
-                const container = containerRef.current;
-                if (!container) return;
-                const rect = container.getBoundingClientRect();
-                const el = e.target as HTMLElement;
-                const elRect = el.getBoundingClientRect();
-                const cx = elRect.left + 20 - rect.left;
-                const cy = elRect.top + 20 - rect.top;
-                setNodePositions((prev) => ({ ...prev, [node.id]: { x: cx, y: cy } }));
+              onDrag={(_e, info) => {
+                setNodePositions((prev) => ({
+                  ...prev,
+                  [node.id]: {
+                    x: (prev[node.id]?.x ?? node.x) + info.delta.x,
+                    y: (prev[node.id]?.y ?? node.y) + info.delta.y,
+                  },
+                }));
               }}
               className="absolute z-10 group cursor-grab active:cursor-grabbing"
-              style={{ left: 0, top: 0 }}
+              style={{ left: pos.x - 20, top: pos.y - 20 }}
               whileHover={{ scale: 1.15 }}
               whileTap={{ scale: 1.05 }}
             >
               {/* Text agent node */}
-              <div className={`h-10 w-10 flex items-center justify-center rounded-full border border-border bg-card transition-all duration-200 ${
+              <div className={`h-10 w-10 flex items-center justify-center rounded-full border bg-card transition-all duration-200 ${
                 node.status === "running"
                   ? "border-primary/50 shadow-[0_0_10px_hsl(var(--primary)/0.3)]"
-                  : "opacity-60"
+                  : "border-border opacity-60"
               }`}>
                 <span className="text-primary font-mono text-xs">◆</span>
               </div>

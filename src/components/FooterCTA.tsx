@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { Twitter } from "lucide-react";
 
 const FooterCTA = () => {
   return (
@@ -18,9 +19,21 @@ const FooterCTA = () => {
           <span className="text-primary font-mono text-xs">◆</span>
           <span className="text-sm font-mono font-medium text-foreground">DeployX402</span>
         </motion.div>
-        <p className="text-[11px] font-mono text-muted-foreground">
-          © 2026 DeployX402. Autonomous trading on Solana. Trading involves risk.
-        </p>
+
+        <div className="flex items-center gap-4">
+          <a
+            href="https://x.com/DeployX402"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Twitter className="h-3 w-3" />
+            @DeployX402
+          </a>
+          <p className="text-[11px] font-mono text-muted-foreground">
+            © 2026 DeployX402. Trading involves risk.
+          </p>
+        </div>
       </div>
     </motion.footer>
   );
