@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { Bot } from "lucide-react";
 import { useState, useRef, useCallback } from "react";
-import agentHalo from "@/assets/agent-halo.png";
+
 
 interface AgentNetworkProps {
   agents: { id: string; name: string; status: string }[];
@@ -82,16 +82,17 @@ const AgentNetwork = ({ agents }: AgentNetworkProps) => {
           })}
         </svg>
 
-        {/* Center node — halo logo */}
+        {/* Center node — text logo */}
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           transition={{ type: "spring", stiffness: 200, delay: 0.1 }}
           className="absolute z-20"
-          style={{ left: centerX - 28, top: centerY - 28 }}
+          style={{ left: centerX - 28, top: centerY - 20 }}
         >
-          <div className="h-14 w-14 flex items-center justify-center">
-            <img src={agentHalo} alt="Center" className="h-14 w-14 object-contain drop-shadow-[0_0_12px_hsl(var(--primary)/0.5)]" />
+          <div className="flex flex-col items-center justify-center drop-shadow-[0_0_12px_hsl(var(--primary)/0.5)]">
+            <span className="text-primary font-mono text-xs font-bold leading-none">◆</span>
+            <span className="text-[9px] font-mono font-bold text-primary leading-tight whitespace-nowrap mt-0.5">DX402</span>
           </div>
         </motion.div>
 
@@ -123,17 +124,13 @@ const AgentNetwork = ({ agents }: AgentNetworkProps) => {
               whileHover={{ scale: 1.15 }}
               whileTap={{ scale: 1.05 }}
             >
-              {/* Halo agent logo */}
-              <div className="h-10 w-10 flex items-center justify-center">
-                <img
-                  src={agentHalo}
-                  alt={node.name}
-                  className={`h-10 w-10 object-contain transition-all duration-200 ${
-                    node.status === "running"
-                      ? "drop-shadow-[0_0_10px_hsl(var(--primary)/0.5)]"
-                      : "opacity-60 grayscale-[30%]"
-                  }`}
-                />
+              {/* Text agent node */}
+              <div className={`h-10 w-10 flex items-center justify-center rounded-full border border-border bg-card transition-all duration-200 ${
+                node.status === "running"
+                  ? "border-primary/50 shadow-[0_0_10px_hsl(var(--primary)/0.3)]"
+                  : "opacity-60"
+              }`}>
+                <span className="text-primary font-mono text-xs">◆</span>
               </div>
 
               {/* Tooltip */}
