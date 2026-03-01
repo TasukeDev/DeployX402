@@ -7,8 +7,9 @@ import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, TrendingUp, TrendingDown, Play, Square, Loader2,
   Settings, BarChart3, Clock, Zap, Wallet, Copy, ExternalLink, GitFork, Radio,
-  Target, AlertTriangle, ArrowDownToLine, RefreshCw,
+  Target, AlertTriangle, ArrowDownToLine, RefreshCw, MessageSquare, Send, Bot, User,
 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   XAxis, YAxis, CartesianGrid, Tooltip,
@@ -71,16 +72,92 @@ const AgentDetail = () => {
   const [loading, setLoading] = useState(true);
   const [copying, setCopying] = useState(false);
   const [liveIndicator, setLiveIndicator] = useState(false);
-  const initialTab = (searchParams.get("tab") as "pnl" | "trades" | "positions" | "config" | "wallet") || "pnl";
-  const [tab, setTab] = useState<"pnl" | "trades" | "positions" | "config" | "wallet">(initialTab);
+  const initialTab = (searchParams.get("tab") as "pnl" | "trades" | "positions" | "config" | "wallet" | "chat") || "pnl";
+  const [tab, setTab] = useState<"pnl" | "trades" | "positions" | "config" | "wallet" | "chat">(initialTab);
   const [positions, setPositions] = useState<Position[]>([]);
   const [positionPrices, setPositionPrices] = useState<Record<string, number>>({});
   const [pricesLoading, setPricesLoading] = useState(false);
   const [tpInput, setTpInput] = useState("");
   const [slInput, setSlInput] = useState("");
   const [savingTpSl, setSavingTpSl] = useState(false);
+  const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
   const tradesRef = useRef<Trade[]>([]);
   tradesRef.current = trades;
+
+  // Auto-scroll chat
+  useEffect(() => {
+    chatScrollRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages]);
+
+  const sendChat = async () => {
+    const text = chatInput.trim();
+    if (!text || chatLoading || !agent) return;
+    const userMsg = { role: "user" as const, content: text };
+    setChatInput("");
+    setChatMessages((prev) => [...prev, userMsg]);
+    setChatLoading(true);
+
+    let assistantSoFar = "";
+    const allMsgs = [...chatMessages, userMsg];
+
+    const upsert = (chunk: string) => {
+      assistantSoFar += chunk;
+      setChatMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (last?.role === "assistant") return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantSoFar } : m);
+        return [...prev, { role: "assistant", content: assistantSoFar }];
+      });
+    };
+
+    try {
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/agent-chat`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ agent_id: agent.id, messages: allMsgs }),
+        }
+      );
+
+      if (!resp.ok || !resp.body) {
+        const err = await resp.json().catch(() => ({ error: "Failed" }));
+        upsert(`Error: ${err.error || "Request failed"}`);
+        setChatLoading(false);
+        return;
+      }
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      let done = false;
+
+      while (!done) {
+        const { done: d, value } = await reader.read();
+        if (d) break;
+        buf += decoder.decode(value, { stream: true });
+        let nl: number;
+        while ((nl = buf.indexOf("\n")) !== -1) {
+          let line = buf.slice(0, nl).replace(/\r$/, "");
+          buf = buf.slice(nl + 1);
+          if (!line.startsWith("data: ")) continue;
+          const json = line.slice(6).trim();
+          if (json === "[DONE]") { done = true; break; }
+          try {
+            const c = JSON.parse(json).choices?.[0]?.delta?.content;
+            if (c) upsert(c);
+          } catch {}
+        }
+      }
+    } catch (e) {
+      upsert("Error: Connection failed.");
+    }
+    setChatLoading(false);
+  };
 
   useEffect(() => {
     if (id) fetchAll();
@@ -462,6 +539,7 @@ const AgentDetail = () => {
             { key: "pnl", label: "PnL Chart", icon: TrendingUp },
             { key: "trades", label: "Trade History", icon: Clock },
             { key: "positions", label: "Positions", icon: Target },
+            { key: "chat", label: "Chat", icon: MessageSquare },
             { key: "wallet", label: "Wallet", icon: Wallet },
             { key: "config", label: "Strategy", icon: Settings },
           ] as const).map((t) => (
@@ -854,6 +932,100 @@ const AgentDetail = () => {
                 {copying ? <Loader2 className="h-4 w-4 animate-spin" /> : <GitFork className="h-4 w-4" />}
                 Copy this strategy to my dashboard
               </motion.button>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Chat */}
+        {tab === "chat" && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-xl border border-border bg-card overflow-hidden flex flex-col" style={{ height: 520 }}>
+            {/* Header */}
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-secondary/30">
+              <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-primary/10 border border-primary/20">
+                <Bot className="h-3 w-3 text-primary" />
+              </div>
+              <span className="text-xs font-mono font-medium">{agent.name}</span>
+              {agent.status === "running" && (
+                <span className="ml-auto flex items-center gap-1 text-[9px] font-mono text-primary">
+                  <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" /> live
+                </span>
+              )}
+            </div>
+
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {chatMessages.length === 0 && (
+                <div className="text-center text-muted-foreground py-16">
+                  <Bot className="h-8 w-8 mx-auto mb-3 opacity-30" />
+                  <p className="text-xs font-mono mb-1">Chat with your agent</p>
+                  <p className="text-[10px] font-mono opacity-60">Tell it which coin to trade, adjust its strategy, or ask about its performance</p>
+                  <div className="mt-4 flex flex-col items-center gap-2">
+                    {["Buy BONK now", "Trade WIF with 0.01 SOL", "What's your current strategy?"].map((s) => (
+                      <button
+                        key={s}
+                        onClick={() => setChatInput(s)}
+                        className="px-3 py-1.5 rounded-lg border border-border/60 bg-secondary/50 text-[10px] font-mono text-muted-foreground hover:text-foreground hover:border-primary/30 transition-colors"
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {chatMessages.map((msg, i) => (
+                <div key={i} className={`flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                  {msg.role === "assistant" && (
+                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 mt-1">
+                      <Bot className="h-3 w-3 text-primary" />
+                    </div>
+                  )}
+                  <div className={`max-w-[80%] rounded-xl px-3 py-2 text-sm ${msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground"}`}>
+                    {msg.role === "assistant" ? (
+                      <div className="prose prose-sm prose-invert max-w-none [&>p]:m-0 text-xs font-mono leading-relaxed">
+                        <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      </div>
+                    ) : (
+                      <span className="text-xs font-mono">{msg.content}</span>
+                    )}
+                  </div>
+                  {msg.role === "user" && (
+                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted mt-1">
+                      <User className="h-3 w-3 text-muted-foreground" />
+                    </div>
+                  )}
+                </div>
+              ))}
+              {chatLoading && chatMessages[chatMessages.length - 1]?.role !== "assistant" && (
+                <div className="flex gap-2">
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 mt-1">
+                    <Bot className="h-3 w-3 text-primary" />
+                  </div>
+                  <div className="bg-secondary rounded-xl px-3 py-2">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                  </div>
+                </div>
+              )}
+              <div ref={chatScrollRef} />
+            </div>
+
+            {/* Input */}
+            <div className="p-3 border-t border-border bg-secondary/20">
+              <form onSubmit={(e) => { e.preventDefault(); sendChat(); }} className="flex gap-2">
+                <input
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  placeholder={`Message ${agent.name}… e.g. "Buy BONK with 0.01 SOL"`}
+                  disabled={chatLoading}
+                  className="flex-1 h-9 rounded-lg border border-border bg-background px-3 text-xs font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 disabled:opacity-50"
+                />
+                <button
+                  type="submit"
+                  disabled={!chatInput.trim() || chatLoading}
+                  className="h-9 w-9 flex items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-40"
+                >
+                  {chatLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                </button>
+              </form>
             </div>
           </motion.div>
         )}
