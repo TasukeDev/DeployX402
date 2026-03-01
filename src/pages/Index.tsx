@@ -5,14 +5,17 @@ import HowItWorksSection from "@/components/HowItWorksSection";
 import EcosystemSection from "@/components/EcosystemSection";
 import FooterCTA from "@/components/FooterCTA";
 import StickyBottomCTA from "@/components/StickyBottomCTA";
+import MarqueeTicker from "@/components/MarqueeTicker";
 
 const Index = () => {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Navbar />
       <HeroSection />
+      <MarqueeTicker />
       <div className="divider-fade" />
       <WhatIsSection />
+      <MarqueeTicker />
       <div className="divider-fade" />
       <HowItWorksSection />
       <div className="divider-fade" />

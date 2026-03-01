@@ -11,6 +11,7 @@ interface LeaderboardAgent {
   category: string;
   model: string;
   status: string;
+  is_public?: boolean;
   pnl_sol: number;
   win_rate: number;
   total_trades: number;
@@ -62,8 +63,7 @@ const Leaderboard = () => {
   const fetchLeaderboard = async () => {
     const { data: agentsData, error: agentsError } = await supabase
       .from("agents")
-      .select("id, name, category, model, status")
-      .eq("is_public", true);
+      .select("id, name, category, model, status, is_public");
 
     if (agentsError) {
       toast({ title: "Error", description: agentsError.message, variant: "destructive" });

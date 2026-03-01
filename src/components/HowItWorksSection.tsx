@@ -8,6 +8,15 @@ const steps = [
   { num: "05", label: "On-Chain", sub: "Verifiable trades" },
 ];
 
+const cardVariants = {
+  hidden: { opacity: 0, y: 24 },
+  show: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5, delay: i * 0.08, ease: "easeOut" as const },
+  }),
+};
+
 const HowItWorksSection = () => {
   return (
     <section id="how-it-works" className="py-32 px-6 relative">
@@ -38,14 +47,17 @@ const HowItWorksSection = () => {
         </div>
 
         {/* Steps — large numbered cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-5 gap-px bg-border">
+        <motion.div
+          className="grid grid-cols-1 sm:grid-cols-5 gap-px bg-border"
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, margin: "-60px" }}
+        >
           {steps.map((step, i) => (
             <motion.div
               key={step.label}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.08 }}
+              custom={i}
+              variants={cardVariants}
               whileHover={{ y: -4 }}
               className={`relative flex flex-col justify-between p-6 min-h-[180px] transition-colors duration-300 ${
                 step.accent
@@ -71,7 +83,7 @@ const HowItWorksSection = () => {
               )}
             </motion.div>
           ))}
-        </div>
+        </motion.div>
 
         {/* Description */}
         <motion.p
