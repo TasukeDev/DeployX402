@@ -47,6 +47,7 @@ const Dashboard = () => {
   const [simInterval, setSimInterval] = useState<NodeJS.Timeout | null>(null);
   const [portfolioSnapshots, setPortfolioSnapshots] = useState<{ date: string; pnl: number }[]>([]);
   const [openPositionsCount, setOpenPositionsCount] = useState(0);
+  const [portfolioUsd, setPortfolioUsd] = useState<{ totalUsd: number; entryUsd: number } | null>(null);
 
   useEffect(() => {
     if (!authenticated && !connected) { navigate("/auth"); return; }
@@ -133,6 +134,31 @@ const Dashboard = () => {
           const wMap: Record<string, { public_key: string; balance_sol: number }> = {};
           walletData.forEach((w: any) => { wMap[w.agent_id] = { public_key: w.public_key, balance_sol: w.balance_sol }; });
           setAgentWallets(wMap);
+
+          // Fetch USD portfolio value from on-chain positions
+          const openPosRes = await supabase
+            .from("agent_positions")
+            .select("token_address, token_amount, entry_price")
+            .in("agent_id", ids)
+            .eq("status", "open");
+          if (openPosRes.data && openPosRes.data.length > 0) {
+            const entryUsd = openPosRes.data.reduce((sum, p) => sum + p.entry_price * p.token_amount, 0);
+            // Fetch current prices for unique tokens
+            const uniqueMints = [...new Set(openPosRes.data.map(p => p.token_address).filter(Boolean))];
+            let currentUsd = 0;
+            await Promise.allSettled(uniqueMints.map(async (mint) => {
+              try {
+                const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${mint}`);
+                const data = await res.json();
+                const priceUsd = parseFloat(data.pairs?.[0]?.priceUsd || "0");
+                if (priceUsd > 0) {
+                  const posForMint = openPosRes.data!.filter(p => p.token_address === mint);
+                  posForMint.forEach(p => { currentUsd += priceUsd * p.token_amount; });
+                }
+              } catch { /* silent */ }
+            }));
+            if (currentUsd > 0 || entryUsd > 0) setPortfolioUsd({ totalUsd: currentUsd, entryUsd });
+          }
         }
       }
     }
@@ -310,7 +336,7 @@ const Dashboard = () => {
                 </div>
                 <span className="text-[10px] font-mono text-muted-foreground">{agents.length} agents</span>
               </div>
-              <div className="grid grid-cols-3 gap-4 mb-6">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
                 <div className="rounded-lg bg-secondary/40 border border-border p-3 flex items-center gap-3">
                   {pnlPos ? <TrendingUp className="h-4 w-4 text-primary shrink-0" /> : <TrendingDown className="h-4 w-4 text-destructive shrink-0" />}
                   <div>
@@ -335,6 +361,52 @@ const Dashboard = () => {
                   </div>
                 </div>
               </div>
+
+              {/* USD Portfolio Value */}
+              {portfolioUsd && (
+                <div className="rounded-lg border border-border bg-secondary/20 p-4 mb-5">
+                  <p className="text-[9px] font-mono text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary inline-block" />
+                    Live USD Portfolio Value
+                  </p>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <p className="text-[9px] font-mono text-muted-foreground uppercase mb-0.5">Current</p>
+                      <p className="text-base font-mono font-bold text-foreground">
+                        {portfolioUsd.totalUsd > 0 ? `$${portfolioUsd.totalUsd.toFixed(2)}` : "—"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-mono text-muted-foreground uppercase mb-0.5">Entry</p>
+                      <p className="text-base font-mono font-bold text-foreground">
+                        {portfolioUsd.entryUsd > 0 ? `$${portfolioUsd.entryUsd.toFixed(2)}` : "—"}
+                      </p>
+                    </div>
+                    <div>
+                      {(() => {
+                        const pnlUsd = portfolioUsd.totalUsd - portfolioUsd.entryUsd;
+                        const pnlPct = portfolioUsd.entryUsd > 0 ? (pnlUsd / portfolioUsd.entryUsd) * 100 : null;
+                        const up = pnlUsd >= 0;
+                        return (
+                          <>
+                            <p className="text-[9px] font-mono text-muted-foreground uppercase mb-0.5">Unrealized PnL</p>
+                            <p className={`text-base font-mono font-bold ${portfolioUsd.totalUsd > 0 && portfolioUsd.entryUsd > 0 ? (up ? "text-primary" : "text-destructive") : "text-foreground"}`}>
+                              {portfolioUsd.totalUsd > 0 && portfolioUsd.entryUsd > 0
+                                ? `${up ? "+" : ""}$${pnlUsd.toFixed(2)}`
+                                : "—"}
+                            </p>
+                            {pnlPct !== null && portfolioUsd.totalUsd > 0 && (
+                              <p className={`text-[10px] font-mono mt-0.5 ${up ? "text-primary/70" : "text-destructive/70"}`}>
+                                {up ? "+" : ""}{pnlPct.toFixed(2)}%
+                              </p>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              )}
               {portfolioSnapshots.length > 0 ? (
                 <div>
                   <p className="text-[9px] font-mono text-muted-foreground uppercase tracking-wider mb-3">Combined Equity Curve</p>

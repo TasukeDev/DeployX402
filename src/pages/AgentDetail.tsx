@@ -83,6 +83,7 @@ const AgentDetail = () => {
   const [sellingAll, setSellingAll] = useState(false);
   const [sellAllConfirmOpen, setSellAllConfirmOpen] = useState(false);
   const [onChainTokens, setOnChainTokens] = useState<Array<{ mint: string; symbol: string; uiAmount: number; priceUsd: number | null; amount: number; decimals: number }>>([]);
+  const [sparklines, setSparklines] = useState<Record<string, { t: number; p: number }[]>>({});
   const [onChainSyncing, setOnChainSyncing] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
   const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
@@ -326,16 +327,61 @@ const AgentDetail = () => {
     return () => clearInterval(interval);
   }, [tab, wallet, refreshBalance, fetchRecentTxs, id]);
 
+  const fetchSparklines = useCallback(async (tokens: Array<{ mint: string }>) => {
+    const results: Record<string, { t: number; p: number }[]> = {};
+    await Promise.allSettled(tokens.map(async (tok) => {
+      try {
+        // Get the first pair address for this token from DexScreener
+        const searchRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${tok.mint}`);
+        const searchData = await searchRes.json();
+        const pairAddress = searchData.pairs?.[0]?.pairAddress;
+        const chainId = searchData.pairs?.[0]?.chainId;
+        if (!pairAddress || !chainId) return;
+        // Fetch 1h OHLCV bars (last 24 bars = 24h)
+        const ohlcvRes = await fetch(
+          `https://api.dexscreener.com/latest/dex/pairs/${chainId}/${pairAddress}`
+        );
+        const ohlcvData = await ohlcvRes.json();
+        const priceHistory = ohlcvData.pair?.priceUsd;
+        // DexScreener doesn't have direct OHLCV, use txns price points as proxy
+        // Instead build a synthetic sparkline from m5/h1/h6/h24 price change
+        const pair = searchData.pairs?.[0];
+        if (!pair) return;
+        const now = Date.now();
+        const current = parseFloat(pair.priceUsd || "0");
+        const h24Change = parseFloat(pair.priceChange?.h24 || "0") / 100;
+        const h6Change = parseFloat(pair.priceChange?.h6 || "0") / 100;
+        const h1Change = parseFloat(pair.priceChange?.h1 || "0") / 100;
+        const m5Change = parseFloat(pair.priceChange?.m5 || "0") / 100;
+        // Reconstruct approximate price points
+        const p24h = current / (1 + h24Change);
+        const p6h = current / (1 + h6Change);
+        const p1h = current / (1 + h1Change);
+        const p5m = current / (1 + m5Change);
+        results[tok.mint] = [
+          { t: now - 24 * 3600000, p: p24h },
+          { t: now - 6 * 3600000, p: p6h },
+          { t: now - 3600000, p: p1h },
+          { t: now - 300000, p: p5m },
+          { t: now, p: current },
+        ];
+      } catch { /* silent */ }
+    }));
+    setSparklines(results);
+  }, []);
+
   const syncOnChain = useCallback(async () => {
     if (!id) return;
     setOnChainSyncing(true);
     try {
-      // Fetch on-chain balances + DB positions in parallel
       const [onChainRes, posData] = await Promise.all([
         supabase.functions.invoke("get-onchain-balances", { body: { agent_id: id } }),
         supabase.from("agent_positions").select("*").eq("agent_id", id).eq("status", "open").order("created_at", { ascending: false }),
       ]);
-      if (onChainRes.data?.tokens) setOnChainTokens(onChainRes.data.tokens);
+      if (onChainRes.data?.tokens) {
+        setOnChainTokens(onChainRes.data.tokens);
+        fetchSparklines(onChainRes.data.tokens);
+      }
       if (onChainRes.data?.sol_balance !== undefined) {
         setWallet(prev => prev ? { ...prev, balance_sol: onChainRes.data.sol_balance } : prev);
       }
@@ -343,7 +389,7 @@ const AgentDetail = () => {
       setLastSyncedAt(new Date());
     } catch { /* silent */ }
     setOnChainSyncing(false);
-  }, [id]);
+  }, [id, fetchSparklines]);
 
   // Periodic on-chain sync: every 30s on positions tab
   useEffect(() => {
@@ -882,24 +928,73 @@ const AgentDetail = () => {
                   {onChainTokens.map((tok) => {
                     const valueUsd = tok.priceUsd !== null ? tok.uiAmount * tok.priceUsd : null;
                     const isTracked = positions.some(p => p.token_address === tok.mint);
+                    const sparkData = sparklines[tok.mint] ?? [];
+                    const sparkFirst = sparkData[0]?.p ?? 0;
+                    const sparkLast = sparkData[sparkData.length - 1]?.p ?? 0;
+                    const sparkUp = sparkLast >= sparkFirst;
+                    const sparkColor = sparkUp ? "hsl(var(--primary))" : "hsl(var(--destructive))";
+                    const h24Change = sparkData.length >= 2 && sparkFirst > 0
+                      ? ((sparkLast - sparkFirst) / sparkFirst) * 100
+                      : null;
                     return (
-                      <div key={tok.mint} className="rounded-xl border border-border bg-card p-3 flex items-center justify-between">
-                        <div>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-mono font-bold">{tok.symbol}</span>
-                            {isTracked
-                              ? <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">tracked</span>
-                              : <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-muted text-muted-foreground border border-border">untracked</span>
-                            }
+                      <div key={tok.mint} className="rounded-xl border border-border bg-card p-3 space-y-2">
+                        {/* Top row: symbol + badge + value */}
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-mono font-bold">{tok.symbol}</span>
+                              {isTracked
+                                ? <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">tracked</span>
+                                : <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-muted text-muted-foreground border border-border">untracked</span>
+                              }
+                              {h24Change !== null && (
+                                <span className={`text-[9px] font-mono font-medium ${sparkUp ? "text-primary" : "text-destructive"}`}>
+                                  {sparkUp ? "+" : ""}{h24Change.toFixed(2)}% 24h
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[10px] font-mono text-muted-foreground mt-0.5">{tok.mint.slice(0, 8)}...{tok.mint.slice(-6)}</p>
                           </div>
-                          <p className="text-[10px] font-mono text-muted-foreground mt-0.5">{tok.mint.slice(0, 8)}...{tok.mint.slice(-6)}</p>
+                          <div className="text-right">
+                            <p className="text-xs font-mono font-semibold">{tok.uiAmount.toLocaleString(undefined, { maximumFractionDigits: 4 })}</p>
+                            {valueUsd !== null && (
+                              <p className="text-[10px] font-mono text-muted-foreground">≈ ${valueUsd.toFixed(2)}</p>
+                            )}
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <p className="text-xs font-mono font-semibold">{tok.uiAmount.toLocaleString(undefined, { maximumFractionDigits: 4 })}</p>
-                          {valueUsd !== null && (
-                            <p className="text-[10px] font-mono text-muted-foreground">≈ ${valueUsd.toFixed(2)}</p>
-                          )}
-                        </div>
+                        {/* Sparkline */}
+                        {sparkData.length >= 2 ? (
+                          <div className="h-10 w-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <AreaChart data={sparkData} margin={{ top: 1, right: 0, bottom: 1, left: 0 }}>
+                                <defs>
+                                  <linearGradient id={`spark-${tok.mint.slice(0, 8)}`} x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor={sparkColor} stopOpacity={0.25} />
+                                    <stop offset="100%" stopColor={sparkColor} stopOpacity={0} />
+                                  </linearGradient>
+                                </defs>
+                                <Area
+                                  type="monotone"
+                                  dataKey="p"
+                                  stroke={sparkColor}
+                                  strokeWidth={1.5}
+                                  fill={`url(#spark-${tok.mint.slice(0, 8)})`}
+                                  dot={false}
+                                  isAnimationActive={false}
+                                />
+                                <Tooltip
+                                  contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 6, fontSize: 9, fontFamily: "JetBrains Mono", padding: "4px 8px" }}
+                                  formatter={(v: number) => [`$${v.toFixed(6)}`, tok.symbol]}
+                                  labelFormatter={() => ""}
+                                />
+                              </AreaChart>
+                            </ResponsiveContainer>
+                          </div>
+                        ) : (
+                          <div className="h-8 flex items-center">
+                            <div className="h-px w-full bg-border/50 opacity-50" />
+                          </div>
+                        )}
                       </div>
                     );
                   })}
