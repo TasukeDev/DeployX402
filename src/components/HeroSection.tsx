@@ -6,14 +6,14 @@ import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 
 const TERMINAL_LINES = [
-  { type: "prompt", text: "$ solagent init" },
-  { type: "output", text: "◆ solagent v1.0.0" },
+  { type: "prompt", text: "$ deployx402 init" },
+  { type: "output", text: "◆ DeployX402 v1.0.0" },
   { type: "output", text: "  Connecting to Solana mainnet..." },
   { type: "success", text: "  ✓ Connected (slot: 312,847,291)" },
   { type: "output", text: "  Loading trading engines..." },
   { type: "success", text: "  ✓ Jupiter • Raydium • Pump.fun" },
   { type: "output", text: "" },
-  { type: "prompt", text: "$ solagent deploy --strategy sniper" },
+  { type: "prompt", text: "$ deployx402 deploy --strategy sniper" },
   { type: "success", text: "  ✓ Agent deployed. Watching for launches..." },
 ];
 
@@ -97,7 +97,7 @@ const HeroSection = () => {
                 <div className="h-2.5 w-2.5 rounded-full terminal-dot-yellow" />
                 <div className="h-2.5 w-2.5 rounded-full terminal-dot-green" />
               </div>
-              <span className="text-[10px] font-mono text-muted-foreground">erl@solagent</span>
+              <span className="text-[10px] font-mono text-muted-foreground">erl@deployx402</span>
             </div>
 
             {/* Terminal content */}
