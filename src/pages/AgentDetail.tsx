@@ -81,6 +81,7 @@ const AgentDetail = () => {
   const [slInput, setSlInput] = useState("");
   const [savingTpSl, setSavingTpSl] = useState(false);
   const [sellingAll, setSellingAll] = useState(false);
+  const [sellAllConfirmOpen, setSellAllConfirmOpen] = useState(false);
   const [onChainTokens, setOnChainTokens] = useState<Array<{ mint: string; symbol: string; uiAmount: number; priceUsd: number | null; amount: number; decimals: number }>>([]);
   const [onChainSyncing, setOnChainSyncing] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
@@ -777,188 +778,318 @@ const AgentDetail = () => {
         )}
 
         {/* Open Positions */}
-        {tab === "positions" && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
-            {/* Header row */}
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Open Positions</span>
-              <div className="flex items-center gap-2">
+        {tab === "positions" && (() => {
+          // ── Portfolio totals ──────────────────────────────────────────────
+          const totalCurrentUsd = onChainTokens.reduce((sum, t) => sum + (t.priceUsd !== null ? t.uiAmount * t.priceUsd : 0), 0);
+          const totalEntryUsd = positions.reduce((sum, p) => {
+            const priceUsd = Object.values(positionPrices)[positions.indexOf(p)] ?? null;
+            return sum + p.entry_amount_sol * (priceUsd ?? 0);
+          }, 0);
+          // Entry value via entry_price × token_amount (USD)
+          const totalEntryUsdFromDb = positions.reduce((sum, p) => sum + p.entry_price * p.token_amount, 0);
+          const portfolioPnlUsd = totalCurrentUsd - totalEntryUsdFromDb;
+          const hasPriceData = onChainTokens.some(t => t.priceUsd !== null);
+
+          return (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+              {/* ── Portfolio summary card ── */}
+              {(onChainTokens.length > 0 || positions.length > 0) && (
+                <div className="rounded-xl border border-border bg-card p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Portfolio Overview</span>
+                    <span className="text-[10px] font-mono text-muted-foreground">{onChainTokens.length} token{onChainTokens.length !== 1 ? "s" : ""} held</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="rounded-lg bg-secondary/40 p-2.5">
+                      <p className="text-[9px] font-mono text-muted-foreground uppercase mb-0.5">Current Value</p>
+                      <p className="text-sm font-mono font-bold">
+                        {hasPriceData ? `$${totalCurrentUsd.toFixed(2)}` : "—"}
+                      </p>
+                    </div>
+                    <div className="rounded-lg bg-secondary/40 p-2.5">
+                      <p className="text-[9px] font-mono text-muted-foreground uppercase mb-0.5">Entry Value</p>
+                      <p className="text-sm font-mono font-bold">
+                        {totalEntryUsdFromDb > 0 ? `$${totalEntryUsdFromDb.toFixed(2)}` : "—"}
+                      </p>
+                    </div>
+                    <div className={`rounded-lg p-2.5 ${hasPriceData && totalEntryUsdFromDb > 0 ? (portfolioPnlUsd >= 0 ? "bg-primary/10" : "bg-destructive/10") : "bg-secondary/40"}`}>
+                      <p className="text-[9px] font-mono text-muted-foreground uppercase mb-0.5">Unrealized PnL</p>
+                      <p className={`text-sm font-mono font-bold ${hasPriceData && totalEntryUsdFromDb > 0 ? (portfolioPnlUsd >= 0 ? "text-primary" : "text-destructive") : ""}`}>
+                        {hasPriceData && totalEntryUsdFromDb > 0
+                          ? `${portfolioPnlUsd >= 0 ? "+" : ""}$${portfolioPnlUsd.toFixed(2)}`
+                          : "—"}
+                      </p>
+                      {hasPriceData && totalEntryUsdFromDb > 0 && (
+                        <p className={`text-[9px] font-mono mt-0.5 ${portfolioPnlUsd >= 0 ? "text-primary/70" : "text-destructive/70"}`}>
+                          {portfolioPnlUsd >= 0 ? "+" : ""}{((portfolioPnlUsd / totalEntryUsdFromDb) * 100).toFixed(2)}%
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Header row ── */}
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Open Positions</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => fetchCurrentPrices(positions)}
+                    disabled={pricesLoading}
+                    className="flex items-center gap-1 text-[10px] font-mono text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    {pricesLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Radio className="h-3 w-3" />}
+                    Refresh prices
+                  </button>
+                  <button
+                    onClick={() => setSellAllConfirmOpen(true)}
+                    disabled={sellingAll}
+                    className="flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/20 transition-colors disabled:opacity-50"
+                  >
+                    {sellingAll ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowDownToLine className="h-3 w-3" />}
+                    Sell All
+                  </button>
+                </div>
+              </div>
+
+              {/* ── Sync status bar ── */}
+              <div className="flex items-center justify-between rounded-lg border border-border bg-secondary/20 px-3 py-1.5">
+                <div className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground">
+                  <div className={`h-1.5 w-1.5 rounded-full ${onChainSyncing ? "bg-primary animate-pulse" : lastSyncedAt ? "bg-primary/70" : "bg-muted-foreground/40"}`} />
+                  {onChainSyncing
+                    ? "Syncing on-chain..."
+                    : lastSyncedAt
+                      ? `Last synced ${lastSyncedAt.toLocaleTimeString("en", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`
+                      : "Not synced yet"}
+                </div>
                 <button
-                  onClick={() => fetchCurrentPrices(positions)}
-                  disabled={pricesLoading}
-                  className="flex items-center gap-1 text-[10px] font-mono text-muted-foreground hover:text-primary transition-colors"
+                  onClick={syncOnChain}
+                  disabled={onChainSyncing}
+                  className="flex items-center gap-1 text-[10px] font-mono text-primary hover:text-primary/80 transition-colors disabled:opacity-50"
                 >
-                  {pricesLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Radio className="h-3 w-3" />}
-                  Refresh prices
-                </button>
-                <button
-                  onClick={sellAll}
-                  disabled={sellingAll}
-                  className="flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/20 transition-colors disabled:opacity-50"
-                >
-                  {sellingAll ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowDownToLine className="h-3 w-3" />}
-                  Sell All
+                  <RefreshCw className={`h-3 w-3 ${onChainSyncing ? "animate-spin" : ""}`} />
+                  Sync Now
                 </button>
               </div>
-            </div>
 
-            {/* Sync status bar */}
-            <div className="flex items-center justify-between rounded-lg border border-border bg-secondary/20 px-3 py-1.5">
-              <div className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground">
-                <div className={`h-1.5 w-1.5 rounded-full ${onChainSyncing ? "bg-primary animate-pulse" : lastSyncedAt ? "bg-primary/70" : "bg-muted-foreground/40"}`} />
-                {onChainSyncing
-                  ? "Syncing on-chain..."
-                  : lastSyncedAt
-                    ? `Last synced ${lastSyncedAt.toLocaleTimeString("en", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`
-                    : "Not synced yet"}
-              </div>
-              <button
-                onClick={syncOnChain}
-                disabled={onChainSyncing}
-                className="flex items-center gap-1 text-[10px] font-mono text-primary hover:text-primary/80 transition-colors disabled:opacity-50"
-              >
-                <RefreshCw className={`h-3 w-3 ${onChainSyncing ? "animate-spin" : ""}`} />
-                Sync Now
-              </button>
-            </div>
-
-            {/* On-chain holdings (untracked tokens) */}
-            {onChainTokens.length > 0 && (
-              <div className="space-y-2">
-                <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                  <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-                  On-Chain Holdings
-                </span>
-                {onChainTokens.map((tok) => {
-                  const valueUsd = tok.priceUsd !== null ? tok.uiAmount * tok.priceUsd : null;
-                  const isTracked = positions.some(p => p.token_address === tok.mint);
-                  return (
-                    <div key={tok.mint} className="rounded-xl border border-border bg-card p-3 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
+              {/* ── On-chain holdings ── */}
+              {onChainTokens.length > 0 && (
+                <div className="space-y-2">
+                  <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                    <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                    On-Chain Holdings
+                  </span>
+                  {onChainTokens.map((tok) => {
+                    const valueUsd = tok.priceUsd !== null ? tok.uiAmount * tok.priceUsd : null;
+                    const isTracked = positions.some(p => p.token_address === tok.mint);
+                    return (
+                      <div key={tok.mint} className="rounded-xl border border-border bg-card p-3 flex items-center justify-between">
                         <div>
                           <div className="flex items-center gap-1.5">
                             <span className="text-xs font-mono font-bold">{tok.symbol}</span>
-                            {isTracked && (
-                              <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">tracked</span>
-                            )}
-                            {!isTracked && (
-                              <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-muted text-muted-foreground border border-border">untracked</span>
-                            )}
+                            {isTracked
+                              ? <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">tracked</span>
+                              : <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-muted text-muted-foreground border border-border">untracked</span>
+                            }
                           </div>
                           <p className="text-[10px] font-mono text-muted-foreground mt-0.5">{tok.mint.slice(0, 8)}...{tok.mint.slice(-6)}</p>
                         </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs font-mono font-semibold">{tok.uiAmount.toLocaleString(undefined, { maximumFractionDigits: 4 })}</p>
-                        {valueUsd !== null && (
-                          <p className="text-[10px] font-mono text-muted-foreground">≈ ${valueUsd.toFixed(2)}</p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* DB Tracked positions */}
-            <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider block mt-2">DB Tracked Positions</span>
-            {positions.length === 0 ? (
-              <div className="text-center py-10 rounded-xl border border-dashed border-border">
-                <Target className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground font-mono">No open positions</p>
-                <p className="text-[11px] text-muted-foreground font-mono mt-1">Positions appear here when the agent buys a token.</p>
-              </div>
-            ) : (
-              positions.map((pos) => {
-                const currentPrice = positionPrices[pos.id];
-                const priceChange = currentPrice ? (currentPrice - pos.entry_price) / pos.entry_price : null;
-                const unrealizedPnl = priceChange !== null ? priceChange * pos.entry_amount_sol : null;
-                const agentTp = (agent?.take_profit_pct ?? DEFAULT_TP);
-                const agentSl = (agent?.stop_loss_pct ?? DEFAULT_SL);
-                const tpDist = agentTp - (priceChange ?? 0);
-                const slDist = (priceChange ?? 0) - (-agentSl);
-                const pnlColor = unrealizedPnl === null ? "text-muted-foreground" : unrealizedPnl >= 0 ? "text-primary" : "text-destructive";
-                return (
-                  <motion.div
-                    key={pos.id}
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="rounded-xl border border-border bg-card p-4 space-y-3"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-mono font-bold">{pos.token_symbol}</span>
-                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">OPEN</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-sm font-mono font-bold ${pnlColor}`}>
-                          {unrealizedPnl === null ? "—" : `${unrealizedPnl >= 0 ? "+" : ""}${unrealizedPnl.toFixed(4)} SOL`}
-                        </span>
-                        {pos.buy_tx_signature && (
-                          <a href={`https://solscan.io/tx/${pos.buy_tx_signature}`} target="_blank" rel="noopener noreferrer"
-                            className="text-muted-foreground hover:text-primary transition-colors" title="View entry tx">
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Price info */}
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="rounded-lg bg-secondary/40 p-2.5">
-                        <p className="text-[9px] font-mono text-muted-foreground uppercase mb-0.5">Entry</p>
-                        <p className="text-[11px] font-mono">${pos.entry_price.toFixed(6)}</p>
-                      </div>
-                      <div className="rounded-lg bg-secondary/40 p-2.5">
-                        <p className="text-[9px] font-mono text-muted-foreground uppercase mb-0.5">Current</p>
-                        <p className={`text-[11px] font-mono ${pnlColor}`}>
-                          {currentPrice ? `$${currentPrice.toFixed(6)}` : "—"}
-                        </p>
-                      </div>
-                      <div className="rounded-lg bg-secondary/40 p-2.5">
-                        <p className="text-[9px] font-mono text-muted-foreground uppercase mb-0.5">Change</p>
-                        <p className={`text-[11px] font-mono ${pnlColor}`}>
-                          {priceChange !== null ? `${priceChange >= 0 ? "+" : ""}${(priceChange * 100).toFixed(2)}%` : "—"}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* TP/SL progress bar */}
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between text-[9px] font-mono text-muted-foreground">
-                        <span className="flex items-center gap-1"><AlertTriangle className="h-2.5 w-2.5 text-destructive" /> SL -{(agentSl * 100).toFixed(1)}%</span>
-                        <span className="text-primary/60">{pos.entry_amount_sol.toFixed(3)} SOL in</span>
-                        <span className="flex items-center gap-1"><TrendingUp className="h-2.5 w-2.5 text-primary" /> TP +{(agentTp * 100).toFixed(1)}%</span>
-                      </div>
-                      <div className="relative h-1.5 rounded-full bg-secondary overflow-hidden">
-                        {priceChange !== null && (
-                          <div
-                            className={`absolute left-0 top-0 h-full rounded-full transition-all duration-500 ${priceChange >= 0 ? "bg-primary" : "bg-destructive"}`}
-                            style={{
-                              width: `${Math.max(2, Math.min(100, ((priceChange - (-agentSl)) / (agentTp - (-agentSl))) * 100))}%`,
-                            }}
-                          />
-                        )}
-                        {/* TP marker */}
-                        <div className="absolute right-0 top-0 h-full w-0.5 bg-primary/40" />
-                      </div>
-                      {priceChange !== null && (
-                        <div className="flex items-center justify-between text-[9px] font-mono text-muted-foreground">
-                          <span className="text-destructive">SL in {(slDist * 100).toFixed(1)}%</span>
-                          <span className="text-primary">TP in {(tpDist * 100).toFixed(1)}%</span>
+                        <div className="text-right">
+                          <p className="text-xs font-mono font-semibold">{tok.uiAmount.toLocaleString(undefined, { maximumFractionDigits: 4 })}</p>
+                          {valueUsd !== null && (
+                            <p className="text-[10px] font-mono text-muted-foreground">≈ ${valueUsd.toFixed(2)}</p>
+                          )}
                         </div>
-                      )}
-                    </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
 
-                    <p className="text-[9px] font-mono text-muted-foreground">
-                      Opened {new Date(pos.created_at).toLocaleString("en", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                    </p>
+              {/* ── DB tracked positions ── */}
+              <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider block mt-2">DB Tracked Positions</span>
+              {positions.length === 0 ? (
+                <div className="text-center py-10 rounded-xl border border-dashed border-border">
+                  <Target className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground font-mono">No open positions</p>
+                  <p className="text-[11px] text-muted-foreground font-mono mt-1">Positions appear here when the agent buys a token.</p>
+                </div>
+              ) : (
+                positions.map((pos) => {
+                  const currentPrice = positionPrices[pos.id];
+                  const priceChange = currentPrice ? (currentPrice - pos.entry_price) / pos.entry_price : null;
+                  const unrealizedPnl = priceChange !== null ? priceChange * pos.entry_amount_sol : null;
+                  const agentTp = (agent?.take_profit_pct ?? DEFAULT_TP);
+                  const agentSl = (agent?.stop_loss_pct ?? DEFAULT_SL);
+                  const tpDist = agentTp - (priceChange ?? 0);
+                  const slDist = (priceChange ?? 0) - (-agentSl);
+                  const pnlColor = unrealizedPnl === null ? "text-muted-foreground" : unrealizedPnl >= 0 ? "text-primary" : "text-destructive";
+                  return (
+                    <motion.div
+                      key={pos.id}
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="rounded-xl border border-border bg-card p-4 space-y-3"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-mono font-bold">{pos.token_symbol}</span>
+                          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">OPEN</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-sm font-mono font-bold ${pnlColor}`}>
+                            {unrealizedPnl === null ? "—" : `${unrealizedPnl >= 0 ? "+" : ""}${unrealizedPnl.toFixed(4)} SOL`}
+                          </span>
+                          {pos.buy_tx_signature && (
+                            <a href={`https://solscan.io/tx/${pos.buy_tx_signature}`} target="_blank" rel="noopener noreferrer"
+                              className="text-muted-foreground hover:text-primary transition-colors" title="View entry tx">
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="rounded-lg bg-secondary/40 p-2.5">
+                          <p className="text-[9px] font-mono text-muted-foreground uppercase mb-0.5">Entry</p>
+                          <p className="text-[11px] font-mono">${pos.entry_price.toFixed(6)}</p>
+                        </div>
+                        <div className="rounded-lg bg-secondary/40 p-2.5">
+                          <p className="text-[9px] font-mono text-muted-foreground uppercase mb-0.5">Current</p>
+                          <p className={`text-[11px] font-mono ${pnlColor}`}>{currentPrice ? `$${currentPrice.toFixed(6)}` : "—"}</p>
+                        </div>
+                        <div className="rounded-lg bg-secondary/40 p-2.5">
+                          <p className="text-[9px] font-mono text-muted-foreground uppercase mb-0.5">Change</p>
+                          <p className={`text-[11px] font-mono ${pnlColor}`}>
+                            {priceChange !== null ? `${priceChange >= 0 ? "+" : ""}${(priceChange * 100).toFixed(2)}%` : "—"}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-[9px] font-mono text-muted-foreground">
+                          <span className="flex items-center gap-1"><AlertTriangle className="h-2.5 w-2.5 text-destructive" /> SL -{(agentSl * 100).toFixed(1)}%</span>
+                          <span className="text-primary/60">{pos.entry_amount_sol.toFixed(3)} SOL in</span>
+                          <span className="flex items-center gap-1"><TrendingUp className="h-2.5 w-2.5 text-primary" /> TP +{(agentTp * 100).toFixed(1)}%</span>
+                        </div>
+                        <div className="relative h-1.5 rounded-full bg-secondary overflow-hidden">
+                          {priceChange !== null && (
+                            <div
+                              className={`absolute left-0 top-0 h-full rounded-full transition-all duration-500 ${priceChange >= 0 ? "bg-primary" : "bg-destructive"}`}
+                              style={{ width: `${Math.max(2, Math.min(100, ((priceChange - (-agentSl)) / (agentTp - (-agentSl))) * 100))}%` }}
+                            />
+                          )}
+                          <div className="absolute right-0 top-0 h-full w-0.5 bg-primary/40" />
+                        </div>
+                        {priceChange !== null && (
+                          <div className="flex items-center justify-between text-[9px] font-mono text-muted-foreground">
+                            <span className="text-destructive">SL in {(slDist * 100).toFixed(1)}%</span>
+                            <span className="text-primary">TP in {(tpDist * 100).toFixed(1)}%</span>
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-[9px] font-mono text-muted-foreground">
+                        Opened {new Date(pos.created_at).toLocaleString("en", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                      </p>
+                    </motion.div>
+                  );
+                })
+              )}
+
+              {/* ── Sell All Confirmation Dialog ── */}
+              <AnimatePresence>
+                {sellAllConfirmOpen && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+                    onClick={(e) => { if (e.target === e.currentTarget) setSellAllConfirmOpen(false); }}
+                  >
+                    <motion.div
+                      initial={{ opacity: 0, y: 40, scale: 0.97 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 40, scale: 0.97 }}
+                      transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                      className="w-full max-w-sm rounded-2xl border border-destructive/30 bg-card shadow-2xl overflow-hidden"
+                    >
+                      {/* Dialog header */}
+                      <div className="bg-destructive/10 border-b border-destructive/20 px-5 py-4">
+                        <div className="flex items-center gap-2.5">
+                          <div className="rounded-full bg-destructive/20 p-1.5">
+                            <ArrowDownToLine className="h-4 w-4 text-destructive" />
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-mono font-bold text-foreground">Confirm Sell All</h3>
+                            <p className="text-[10px] font-mono text-muted-foreground mt-0.5">This action cannot be undone</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Token list to be sold */}
+                      <div className="px-5 py-4 space-y-3">
+                        <p className="text-[11px] font-mono text-muted-foreground">The following on-chain tokens will be liquidated via Jupiter:</p>
+                        <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                          {onChainTokens.length > 0 ? onChainTokens.map((tok) => {
+                            const valueUsd = tok.priceUsd !== null ? tok.uiAmount * tok.priceUsd : null;
+                            return (
+                              <div key={tok.mint} className="flex items-center justify-between rounded-lg bg-secondary/40 px-3 py-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-mono font-semibold">{tok.symbol}</span>
+                                  <span className="text-[9px] font-mono text-muted-foreground">{tok.uiAmount.toLocaleString(undefined, { maximumFractionDigits: 4 })}</span>
+                                </div>
+                                {valueUsd !== null && (
+                                  <span className="text-[10px] font-mono text-muted-foreground">≈ ${valueUsd.toFixed(2)}</span>
+                                )}
+                              </div>
+                            );
+                          }) : (
+                            <div className="rounded-lg bg-secondary/40 px-3 py-2">
+                              <p className="text-[10px] font-mono text-muted-foreground">No on-chain tokens detected yet — sync first to check.</p>
+                            </div>
+                          )}
+                          {positions.length > 0 && onChainTokens.length === 0 && positions.map((pos) => (
+                            <div key={pos.id} className="flex items-center justify-between rounded-lg bg-secondary/40 px-3 py-2">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-mono font-semibold">{pos.token_symbol}</span>
+                                <span className="text-[9px] font-mono text-muted-foreground">{pos.token_amount.toFixed(4)}</span>
+                              </div>
+                              <span className="text-[10px] font-mono text-muted-foreground">{pos.entry_amount_sol.toFixed(4)} SOL in</span>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Warning */}
+                        <div className="rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2.5 flex items-start gap-2">
+                          <AlertTriangle className="h-3.5 w-3.5 text-destructive mt-0.5 shrink-0" />
+                          <p className="text-[10px] font-mono text-destructive leading-relaxed">
+                            The agent will be <strong>stopped immediately</strong> and will not resume trading until you manually restart it.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex gap-2 px-5 pb-5">
+                        <button
+                          onClick={() => setSellAllConfirmOpen(false)}
+                          className="flex-1 text-xs font-mono py-2.5 rounded-xl border border-border bg-secondary/40 hover:bg-secondary/70 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => { setSellAllConfirmOpen(false); sellAll(); }}
+                          disabled={sellingAll}
+                          className="flex-1 flex items-center justify-center gap-1.5 text-xs font-mono py-2.5 rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors disabled:opacity-50"
+                        >
+                          {sellingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowDownToLine className="h-3.5 w-3.5" />}
+                          Sell All Now
+                        </button>
+                      </div>
+                    </motion.div>
                   </motion.div>
-                );
-              })
-            )}
-          </motion.div>
-        )}
+                )}
+              </AnimatePresence>
+            </motion.div>
+          );
+        })()}
 
         {/* Strategy Config */}
         {tab === "config" && (
