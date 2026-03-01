@@ -375,7 +375,8 @@ serve(async (req) => {
         const outAmount = parseInt(quote.outAmount || "0");
         if (outAmount <= 0) throw new Error(`Jupiter returned 0 outAmount for ${token.symbol}`);
 
-        const estimatedPrice = tradeAmountSol / (outAmount / 1e6); // price per token unit
+        // Store entry_price in USD (from DexScreener) so TP/SL comparison uses same unit
+        const entryPriceUsd = token.priceUsd;
 
         const swapTxBase64 = await getJupiterSwapTx(quote, wallet.public_key);
         const signedTxBase64 = await signTransaction(swapTxBase64, wallet.encrypted_private_key);
@@ -390,7 +391,7 @@ serve(async (req) => {
           user_id: agent.user_id,
           token_symbol: token.symbol,
           token_address: token.address,
-          entry_price: estimatedPrice,
+          entry_price: entryPriceUsd,
           entry_amount_sol: tradeAmountSol,
           token_amount: outAmount / 1e6,
           buy_tx_signature: onChainSig,
@@ -405,7 +406,7 @@ serve(async (req) => {
           action: "buy",
           amount_sol: tradeAmountSol,
           token_amount: outAmount / 1e6,
-          price: estimatedPrice,
+          price: entryPriceUsd,
           pnl_sol: 0,
           signal: `DexScreener vol: $${(token.volume24h / 1000).toFixed(0)}k · 24h: ${token.priceChange24h > 0 ? "+" : ""}${token.priceChange24h.toFixed(1)}%`,
           tx_signature: onChainSig,
