@@ -23,6 +23,7 @@ interface Trade {
   id: string; token_symbol: string; action: string;
   amount_sol: number; token_amount: number; price: number;
   pnl_sol: number; signal: string | null; created_at: string;
+  tx_signature?: string | null;
 }
 
 interface PnlSnapshot {
@@ -443,9 +444,22 @@ const AgentDetail = () => {
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className={`text-xs font-mono font-bold ${trade.pnl_sol >= 0 ? "text-primary" : "text-destructive"}`}>
-                            {trade.pnl_sol >= 0 ? "+" : ""}{trade.pnl_sol.toFixed(4)} SOL
-                          </p>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <p className={`text-xs font-mono font-bold ${trade.pnl_sol >= 0 ? "text-primary" : "text-destructive"}`}>
+                              {trade.pnl_sol >= 0 ? "+" : ""}{trade.pnl_sol.toFixed(4)} SOL
+                            </p>
+                            {trade.tx_signature && (
+                              <a
+                                href={`https://solscan.io/tx/${trade.tx_signature}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-muted-foreground hover:text-primary transition-colors"
+                                title="View on Solscan"
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                              </a>
+                            )}
+                          </div>
                           <p className="text-[10px] font-mono text-muted-foreground">
                             {new Date(trade.created_at).toLocaleString("en", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                           </p>

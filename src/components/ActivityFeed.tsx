@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Zap, TrendingUp, TrendingDown, Loader2 } from "lucide-react";
+import { Zap, TrendingUp, TrendingDown, Loader2, ExternalLink } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface TradeEvent {
@@ -12,6 +12,7 @@ interface TradeEvent {
   pnl_sol: number;
   signal: string | null;
   created_at: string;
+  tx_signature?: string | null;
 }
 
 interface ActivityFeedProps {
@@ -25,11 +26,10 @@ const ActivityFeed = ({ agentIds }: ActivityFeedProps) => {
   useEffect(() => {
     if (agentIds.length === 0) { setLoading(false); return; }
 
-    // Fetch recent trades
     const fetchRecent = async () => {
       const { data } = await supabase
         .from("trade_history")
-        .select("id, agent_id, token_symbol, action, amount_sol, pnl_sol, signal, created_at")
+        .select("id, agent_id, token_symbol, action, amount_sol, pnl_sol, signal, created_at, tx_signature")
         .in("agent_id", agentIds)
         .order("created_at", { ascending: false })
         .limit(20);
@@ -38,16 +38,11 @@ const ActivityFeed = ({ agentIds }: ActivityFeedProps) => {
     };
     fetchRecent();
 
-    // Subscribe to realtime
     const channel = supabase
       .channel("trade-feed")
       .on(
         "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "trade_history",
-        },
+        { event: "INSERT", schema: "public", table: "trade_history" },
         (payload) => {
           const newTrade = payload.new as TradeEvent;
           if (agentIds.includes(newTrade.agent_id)) {
@@ -108,6 +103,17 @@ const ActivityFeed = ({ agentIds }: ActivityFeedProps) => {
                     </span>
                     <span className="text-[10px] font-mono text-foreground">{e.token_symbol}</span>
                     <span className="text-[10px] font-mono text-muted-foreground">· {e.amount_sol} SOL</span>
+                    {e.tx_signature && (
+                      <a
+                        href={`https://solscan.io/tx/${e.tx_signature}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary/60 hover:text-primary transition-colors"
+                        title="View on Solscan"
+                      >
+                        <ExternalLink className="h-2.5 w-2.5" />
+                      </a>
+                    )}
                   </div>
                   {e.signal && (
                     <span className="text-[9px] font-mono text-muted-foreground">{e.signal}</span>

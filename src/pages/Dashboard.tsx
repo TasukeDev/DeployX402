@@ -9,7 +9,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import {
   Play, Square, RotateCcw, Trash2, ArrowLeft,
-  Bot, Loader2, Eye, Info,
+  Bot, Loader2, Eye, Info, Wallet, Copy, ExternalLink,
 } from "lucide-react";
 import AgentNetwork from "@/components/AgentNetwork";
 import ActivityFeed from "@/components/ActivityFeed";
@@ -37,6 +37,7 @@ const Dashboard = () => {
 
   const [agents, setAgents] = useState<Agent[]>([]);
   const [agentPnl, setAgentPnl] = useState<Record<string, number>>({});
+  const [agentWallets, setAgentWallets] = useState<Record<string, { public_key: string; balance_sol: number }>>({});
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [agentType, setAgentType] = useState("");
@@ -86,9 +87,10 @@ const Dashboard = () => {
     const agentList = data || [];
     setAgents(agentList);
 
-    // Fetch latest pnl_snapshot for each agent
     if (agentList.length > 0) {
       const ids = agentList.map((a) => a.id);
+
+      // Fetch latest pnl_snapshot for each agent
       const { data: snaps } = await supabase
         .from("pnl_snapshots")
         .select("agent_id, pnl_sol, snapshot_at")
@@ -96,12 +98,25 @@ const Dashboard = () => {
         .order("snapshot_at", { ascending: false });
 
       if (snaps) {
-        // Keep only the latest snapshot per agent
         const latestMap: Record<string, number> = {};
-        snaps.forEach((s) => {
-          if (!(s.agent_id in latestMap)) latestMap[s.agent_id] = s.pnl_sol;
-        });
+        snaps.forEach((s) => { if (!(s.agent_id in latestMap)) latestMap[s.agent_id] = s.pnl_sol; });
         setAgentPnl(latestMap);
+      }
+
+      // Fetch wallets for all agents
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
+      if (token) {
+        const walletRes = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/agent_wallets?agent_id=in.(${ids.join(",")})&select=agent_id,public_key,balance_sol`,
+          { headers: { apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, Authorization: `Bearer ${token}` } }
+        );
+        const walletData = await walletRes.json();
+        if (Array.isArray(walletData)) {
+          const wMap: Record<string, { public_key: string; balance_sol: number }> = {};
+          walletData.forEach((w: any) => { wMap[w.agent_id] = { public_key: w.public_key, balance_sol: w.balance_sol }; });
+          setAgentWallets(wMap);
+        }
       }
     }
     setLoading(false);
@@ -262,6 +277,7 @@ const Dashboard = () => {
                 {agents.map((agent, i) => {
                   const pnl = agentPnl[agent.id] ?? null;
                   const isRunning = agent.status === "running";
+                  const agentWallet = agentWallets[agent.id] ?? null;
                   return (
                     <motion.div
                       key={agent.id}
@@ -281,6 +297,36 @@ const Dashboard = () => {
                             <span className="text-sm font-mono font-medium truncate">{agent.name}</span>
                             <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">{agent.category}</span>
                           </div>
+                          {agentWallet ? (
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <Wallet className="h-2.5 w-2.5 text-muted-foreground" />
+                              <span className="text-[9px] font-mono text-muted-foreground">
+                                {agentWallet.public_key.slice(0, 4)}...{agentWallet.public_key.slice(-4)}
+                              </span>
+                              <span className={`text-[9px] font-mono font-medium ${agentWallet.balance_sol >= 0.005 ? "text-primary" : "text-destructive"}`}>
+                                {agentWallet.balance_sol.toFixed(4)} SOL
+                              </span>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(agentWallet.public_key); }}
+                                className="text-muted-foreground hover:text-foreground transition-colors"
+                                title="Copy wallet address"
+                              >
+                                <Copy className="h-2.5 w-2.5" />
+                              </button>
+                              <a
+                                href={`https://solscan.io/account/${agentWallet.public_key}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-muted-foreground hover:text-primary transition-colors"
+                                title="View on Solscan"
+                              >
+                                <ExternalLink className="h-2.5 w-2.5" />
+                              </a>
+                            </div>
+                          ) : (
+                            <span className="text-[9px] font-mono text-muted-foreground mt-0.5 block">no wallet · go to agent detail</span>
+                          )}
                         </div>
                       </div>
 
