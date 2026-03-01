@@ -181,20 +181,7 @@ const AgentDetail = () => {
 
 
     const realSnapshots = (snapshotsRes.data as PnlSnapshot[]) || [];
-    if (realSnapshots.length === 0) {
-      const mockSnapshots = Array.from({ length: 14 }, (_, i) => ({
-        id: `mock-${i}`,
-        pnl_sol: parseFloat((Math.random() * 6 - 1).toFixed(2)),
-        total_trades: Math.floor(Math.random() * 20) + i * 3,
-        win_rate: parseFloat((45 + Math.random() * 30).toFixed(1)),
-        snapshot_at: new Date(Date.now() - (13 - i) * 86400000).toISOString(),
-      }));
-      let cum = 0;
-      mockSnapshots.forEach((s) => { cum += s.pnl_sol; s.pnl_sol = parseFloat(cum.toFixed(2)); });
-      setSnapshots(mockSnapshots);
-    } else {
-      setSnapshots(realSnapshots);
-    }
+    setSnapshots(realSnapshots);
 
     setLoading(false);
   };
@@ -419,48 +406,59 @@ const AgentDetail = () => {
         {tab === "pnl" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-xl border border-border bg-card p-6">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Cumulative PnL (14d)</h3>
+              <h3 className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Cumulative PnL</h3>
               <span className={`text-sm font-mono font-bold ${pnlPositive ? "text-primary" : "text-destructive"}`}>
-                {pnlPositive ? "+" : ""}{totalPnl.toFixed(2)} SOL
+                {snapshots.length > 0 ? `${pnlPositive ? "+" : ""}${totalPnl.toFixed(4)} SOL` : "—"}
               </span>
             </div>
-            <ResponsiveContainer width="100%" height={280}>
-              <AreaChart data={snapshots.map((s) => ({
-                date: new Date(s.snapshot_at).toLocaleDateString("en", { month: "short", day: "numeric" }),
-                pnl: s.pnl_sol,
-              }))}>
-                <defs>
-                  <linearGradient id="pnlGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="hsl(160, 70%, 45%)" stopOpacity={0.25} />
-                    <stop offset="100%" stopColor="hsl(160, 70%, 45%)" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(0, 0%, 14%)" />
-                <XAxis dataKey="date" tick={{ fontSize: 10, fontFamily: "JetBrains Mono", fill: "hsl(0, 0%, 38%)" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fontFamily: "JetBrains Mono", fill: "hsl(0, 0%, 38%)" }} axisLine={false} tickLine={false} />
-                <Tooltip
-                  contentStyle={{ background: "hsl(0, 0%, 9%)", border: "1px solid hsl(0, 0%, 16%)", borderRadius: 8, fontSize: 11, fontFamily: "JetBrains Mono" }}
-                  labelStyle={{ color: "hsl(0, 0%, 55%)" }}
-                  itemStyle={{ color: "hsl(160, 70%, 45%)" }}
-                  formatter={(v: number) => [`${v >= 0 ? "+" : ""}${v.toFixed(4)} SOL`, "PnL"]}
-                />
-                <Area type="monotone" dataKey="pnl" stroke="hsl(160, 70%, 45%)" fill="url(#pnlGrad)" strokeWidth={2} dot={false} />
-              </AreaChart>
-            </ResponsiveContainer>
 
-            {/* Snapshot stats row */}
-            <div className="grid grid-cols-3 gap-3 mt-6 pt-4 border-t border-border">
-              {[
-                { label: "Best Day", value: `+${Math.max(...snapshots.map(s => s.pnl_sol), 0).toFixed(2)} SOL` },
-                { label: "Total Trades", value: totalTrades.toString() },
-                { label: "Win Rate", value: `${winRate.toFixed(1)}%` },
-              ].map((s) => (
-                <div key={s.label} className="text-center">
-                  <p className="text-[10px] font-mono text-muted-foreground uppercase">{s.label}</p>
-                  <p className="text-xs font-mono font-medium text-foreground mt-0.5">{s.value}</p>
+            {snapshots.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-[280px] rounded-xl border border-dashed border-border gap-3">
+                <TrendingUp className="h-6 w-6 text-muted-foreground" />
+                <p className="text-sm font-mono text-muted-foreground">No trades yet</p>
+                <p className="text-[11px] font-mono text-muted-foreground text-center max-w-xs">
+                  Fund the agent wallet with SOL and start the agent to begin real on-chain trading.
+                </p>
+              </div>
+            ) : (
+              <>
+                <ResponsiveContainer width="100%" height={280}>
+                  <AreaChart data={snapshots.map((s) => ({
+                    date: new Date(s.snapshot_at).toLocaleDateString("en", { month: "short", day: "numeric" }),
+                    pnl: s.pnl_sol,
+                  }))}>
+                    <defs>
+                      <linearGradient id="pnlGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.25} />
+                        <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="date" tick={{ fontSize: 10, fontFamily: "JetBrains Mono", fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 10, fontFamily: "JetBrains Mono", fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                    <Tooltip
+                      contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11, fontFamily: "JetBrains Mono" }}
+                      labelStyle={{ color: "hsl(var(--muted-foreground))" }}
+                      itemStyle={{ color: "hsl(var(--primary))" }}
+                      formatter={(v: number) => [`${v >= 0 ? "+" : ""}${v.toFixed(4)} SOL`, "PnL"]}
+                    />
+                    <Area type="monotone" dataKey="pnl" stroke="hsl(var(--primary))" fill="url(#pnlGrad)" strokeWidth={2} dot={false} />
+                  </AreaChart>
+                </ResponsiveContainer>
+                <div className="grid grid-cols-3 gap-3 mt-6 pt-4 border-t border-border">
+                  {[
+                    { label: "Best PnL", value: `+${Math.max(...snapshots.map(s => s.pnl_sol), 0).toFixed(4)} SOL` },
+                    { label: "Total Trades", value: totalTrades.toString() },
+                    { label: "Win Rate", value: `${winRate.toFixed(1)}%` },
+                  ].map((s) => (
+                    <div key={s.label} className="text-center">
+                      <p className="text-[10px] font-mono text-muted-foreground uppercase">{s.label}</p>
+                      <p className="text-xs font-mono font-medium text-foreground mt-0.5">{s.value}</p>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </>
+            )}
           </motion.div>
         )}
 
