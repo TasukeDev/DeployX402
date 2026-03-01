@@ -1,22 +1,22 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/components/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import {
-  ArrowLeft, Bot, TrendingUp, Play, Square, Loader2,
-  Settings, BarChart3, Clock, Zap, Wallet, Copy, ExternalLink,
+  ArrowLeft, TrendingUp, Play, Square, Loader2,
+  Settings, BarChart3, Clock, Zap, Wallet, Copy, ExternalLink, GitFork,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, AreaChart, Area,
 } from "recharts";
-import agentHalo from "@/assets/agent-halo.png";
 
 interface AgentData {
   id: string; name: string; category: string; model: string;
   status: string; system_prompt: string | null; created_at: string;
-  is_public: boolean;
+  is_public: boolean; user_id: string;
 }
 
 interface Trade {
@@ -39,12 +39,14 @@ const AgentDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { authenticated } = useAuth();
   const [agent, setAgent] = useState<AgentData | null>(null);
   const [trades, setTrades] = useState<Trade[]>([]);
   const [snapshots, setSnapshots] = useState<PnlSnapshot[]>([]);
   const [wallet, setWallet] = useState<AgentWallet | null>(null);
   const [walletLoading, setWalletLoading] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [copying, setCopying] = useState(false);
   const [tab, setTab] = useState<"pnl" | "trades" | "config" | "wallet">("pnl");
 
   useEffect(() => {
@@ -58,7 +60,7 @@ const AgentDetail = () => {
       supabase.from("pnl_snapshots").select("*").eq("agent_id", id!).order("snapshot_at", { ascending: true }),
     ]);
 
-    // Fetch wallet separately (table may not be in generated types)
+    // Fetch wallet separately
     const walletRes = await fetch(
       `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/agent_wallets?agent_id=eq.${id}&select=public_key,balance_sol&limit=1`,
       { headers: { apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` } }
@@ -97,9 +99,7 @@ const AgentDetail = () => {
   const generateWallet = async () => {
     setWalletLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-wallet", {
-        body: { agent_id: id },
-      });
+      const { data, error } = await supabase.functions.invoke("generate-wallet", { body: { agent_id: id } });
       if (error) throw error;
       setWallet({ public_key: data.public_key, balance_sol: 0 });
       toast({ title: data.already_exists ? "Wallet loaded" : "Wallet generated!", description: `Address: ${data.public_key.slice(0, 8)}...` });
@@ -107,6 +107,32 @@ const AgentDetail = () => {
       toast({ title: "Error", description: e.message, variant: "destructive" });
     }
     setWalletLoading(false);
+  };
+
+  const handleCopyTrade = async () => {
+    if (!agent) return;
+    if (!authenticated) { navigate("/auth"); return; }
+    setCopying(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+      const newName = `${agent.category}-copy-${Date.now().toString(36).slice(-4)}`;
+      const { error } = await supabase.from("agents").insert({
+        name: newName,
+        category: agent.category,
+        model: agent.model,
+        system_prompt: agent.system_prompt,
+        user_id: user.id,
+        status: "stopped",
+        is_public: false,
+      });
+      if (error) throw error;
+      toast({ title: "Agent copied!", description: `${newName} added to your dashboard.` });
+      navigate("/dashboard");
+    } catch (e: any) {
+      toast({ title: "Copy failed", description: e.message, variant: "destructive" });
+    }
+    setCopying(false);
   };
 
   const getRiskLabel = (m: string) =>
@@ -136,9 +162,11 @@ const AgentDetail = () => {
   const totalPnl = snapshots.length > 0 ? snapshots[snapshots.length - 1].pnl_sol : 0;
   const totalTrades = snapshots.length > 0 ? snapshots[snapshots.length - 1].total_trades : trades.length;
   const winRate = snapshots.length > 0 ? snapshots[snapshots.length - 1].win_rate : 0;
+  const pnlPositive = totalPnl >= 0;
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Nav */}
       <nav className="border-b border-border/40 bg-background/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="container mx-auto flex h-12 items-center justify-between px-6">
           <div className="flex items-center gap-3">
@@ -147,57 +175,95 @@ const AgentDetail = () => {
             </button>
             <div className="flex items-center gap-2">
               <span className="text-primary font-mono text-[10px]">◆</span>
-              <span className="text-xs font-mono font-medium">solagent</span>
+              <span className="text-xs font-mono font-medium">DeployX402</span>
               <span className="text-[10px] text-muted-foreground font-mono">/ agent / {agent.name}</span>
             </div>
           </div>
-          <button
-            onClick={toggleStatus}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono transition-colors ${
-              agent.status === "running"
-                ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
-                : "bg-primary/10 text-primary hover:bg-primary/20"
-            }`}
-          >
-            {agent.status === "running" ? <Square className="h-3 w-3" /> : <Play className="h-3 w-3" />}
-            {agent.status === "running" ? "stop" : "start"}
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Copy Trade Button */}
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={handleCopyTrade}
+              disabled={copying}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-xs font-mono text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
+            >
+              {copying ? <Loader2 className="h-3 w-3 animate-spin" /> : <GitFork className="h-3 w-3" />}
+              Copy Trade
+            </motion.button>
+            <button
+              onClick={toggleStatus}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono transition-colors ${
+                agent.status === "running"
+                  ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
+                  : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+              }`}
+            >
+              {agent.status === "running" ? <Square className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+              {agent.status === "running" ? "stop" : "start"}
+            </button>
+          </div>
         </div>
       </nav>
 
       <div className="container mx-auto px-6 py-10 max-w-4xl">
         {/* Header */}
-        <div className="flex items-center gap-3 mb-8">
-          <div className={`h-3 w-3 rounded-full ${agent.status === "running" ? "bg-primary" : "bg-muted-foreground"}`} />
-          <div>
-            <h1 className="text-lg font-medium">{agent.name}</h1>
-            <div className="flex items-center gap-2 mt-0.5">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="flex items-start gap-4 mb-8"
+        >
+          {/* Agent icon */}
+          <div className={`h-12 w-12 rounded-xl border flex items-center justify-center shrink-0 ${
+            agent.status === "running" ? "border-primary/40 bg-primary/5 shadow-[0_0_16px_hsl(var(--primary)/0.15)]" : "border-border bg-card"
+          }`}>
+            <span className="text-primary font-mono text-lg">◆</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-xl font-medium tracking-tight">{agent.name}</h1>
+              <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
+                agent.status === "running"
+                  ? "border-primary/30 bg-primary/10 text-primary"
+                  : "border-border bg-secondary text-muted-foreground"
+              }`}>
+                {agent.status}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
               <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">{agent.category}</span>
               <span className="text-[10px] font-mono text-muted-foreground">{getRiskLabel(agent.model)}</span>
-              <span className="text-[10px] font-mono text-muted-foreground">· {getFundAmount(agent.system_prompt)}</span>
+              <span className="text-[10px] font-mono text-muted-foreground">· funded {getFundAmount(agent.system_prompt)}</span>
+              {agent.is_public && <span className="text-[10px] font-mono text-primary/70">· public</span>}
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-3 gap-3 mb-8">
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.08 }}
+          className="grid grid-cols-3 gap-3 mb-8"
+        >
           {[
-            { label: "Total PnL", value: `${totalPnl >= 0 ? "+" : ""}${totalPnl.toFixed(2)} SOL`, icon: TrendingUp, color: totalPnl >= 0 },
-            { label: "Trades", value: totalTrades.toString(), icon: Zap, color: true },
-            { label: "Win Rate", value: `${winRate.toFixed(1)}%`, icon: BarChart3, color: winRate > 50 },
+            { label: "Total PnL", value: `${pnlPositive ? "+" : ""}${totalPnl.toFixed(2)} SOL`, icon: TrendingUp, positive: pnlPositive },
+            { label: "Total Trades", value: totalTrades.toString(), icon: Zap, positive: true },
+            { label: "Win Rate", value: `${winRate.toFixed(1)}%`, icon: BarChart3, positive: winRate > 50 },
           ].map((s) => (
             <div key={s.label} className="rounded-xl border border-border bg-card p-4 flex items-center gap-3">
-              <s.icon className={`h-4 w-4 ${s.color ? "text-primary" : "text-destructive"}`} />
+              <s.icon className={`h-4 w-4 ${s.positive ? "text-primary" : "text-destructive"}`} />
               <div>
-                <p className="text-[10px] font-mono text-muted-foreground uppercase">{s.label}</p>
-                <p className={`text-sm font-mono font-bold ${s.color ? "text-primary" : "text-destructive"}`}>{s.value}</p>
+                <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">{s.label}</p>
+                <p className={`text-sm font-mono font-bold ${s.positive ? "text-primary" : "text-destructive"}`}>{s.value}</p>
               </div>
             </div>
           ))}
-        </div>
+        </motion.div>
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-6 border-b border-border">
+        <div className="flex gap-1 mb-6 border-b border-border overflow-x-auto">
           {([
             { key: "pnl", label: "PnL Chart", icon: TrendingUp },
             { key: "trades", label: "Trade History", icon: Clock },
@@ -207,7 +273,7 @@ const AgentDetail = () => {
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-mono transition-colors border-b-2 -mb-px ${
+              className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-mono transition-colors border-b-2 -mb-px whitespace-nowrap ${
                 tab === t.key ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -216,97 +282,150 @@ const AgentDetail = () => {
           ))}
         </div>
 
-        {/* Tab Content */}
+        {/* PnL Chart */}
         {tab === "pnl" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-xl border border-border bg-card p-6">
-            <h3 className="text-xs font-mono text-muted-foreground uppercase mb-4">Cumulative PnL (14d)</h3>
-            <ResponsiveContainer width="100%" height={300}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Cumulative PnL (14d)</h3>
+              <span className={`text-sm font-mono font-bold ${pnlPositive ? "text-primary" : "text-destructive"}`}>
+                {pnlPositive ? "+" : ""}{totalPnl.toFixed(2)} SOL
+              </span>
+            </div>
+            <ResponsiveContainer width="100%" height={280}>
               <AreaChart data={snapshots.map((s) => ({
                 date: new Date(s.snapshot_at).toLocaleDateString("en", { month: "short", day: "numeric" }),
                 pnl: s.pnl_sol,
               }))}>
                 <defs>
                   <linearGradient id="pnlGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="hsl(160, 70%, 45%)" stopOpacity={0.3} />
+                    <stop offset="0%" stopColor="hsl(160, 70%, 45%)" stopOpacity={0.25} />
                     <stop offset="100%" stopColor="hsl(160, 70%, 45%)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(0, 0%, 16%)" />
-                <XAxis dataKey="date" tick={{ fontSize: 10, fontFamily: "JetBrains Mono", fill: "hsl(0, 0%, 42%)" }} />
-                <YAxis tick={{ fontSize: 10, fontFamily: "JetBrains Mono", fill: "hsl(0, 0%, 42%)" }} />
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(0, 0%, 14%)" />
+                <XAxis dataKey="date" tick={{ fontSize: 10, fontFamily: "JetBrains Mono", fill: "hsl(0, 0%, 38%)" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 10, fontFamily: "JetBrains Mono", fill: "hsl(0, 0%, 38%)" }} axisLine={false} tickLine={false} />
                 <Tooltip
-                  contentStyle={{ background: "hsl(0, 0%, 11%)", border: "1px solid hsl(0, 0%, 18%)", borderRadius: 8, fontSize: 11, fontFamily: "JetBrains Mono" }}
-                  labelStyle={{ color: "hsl(0, 0%, 60%)" }}
+                  contentStyle={{ background: "hsl(0, 0%, 9%)", border: "1px solid hsl(0, 0%, 16%)", borderRadius: 8, fontSize: 11, fontFamily: "JetBrains Mono" }}
+                  labelStyle={{ color: "hsl(0, 0%, 55%)" }}
+                  itemStyle={{ color: "hsl(160, 70%, 45%)" }}
+                  formatter={(v: number) => [`${v >= 0 ? "+" : ""}${v.toFixed(4)} SOL`, "PnL"]}
                 />
-                <Area type="monotone" dataKey="pnl" stroke="hsl(160, 70%, 45%)" fill="url(#pnlGrad)" strokeWidth={2} />
+                <Area type="monotone" dataKey="pnl" stroke="hsl(160, 70%, 45%)" fill="url(#pnlGrad)" strokeWidth={2} dot={false} />
               </AreaChart>
             </ResponsiveContainer>
-          </motion.div>
-        )}
 
-        {tab === "trades" && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-2">
-            {trades.length === 0 ? (
-              <div className="text-center py-16 rounded-xl border border-dashed border-border">
-                <Clock className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground font-mono">No trades recorded yet.</p>
-              </div>
-            ) : (
-              trades.map((trade) => (
-                <div key={trade.id} className="rounded-xl border border-border bg-card p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${
-                      trade.action === "buy" ? "bg-primary/10 text-primary" : "bg-destructive/10 text-destructive"
-                    }`}>
-                      {trade.action.toUpperCase()}
-                    </span>
-                    <div>
-                      <span className="text-sm font-mono font-medium">{trade.token_symbol}</span>
-                      <p className="text-[10px] font-mono text-muted-foreground">
-                        {trade.amount_sol} SOL @ ${trade.price.toFixed(6)}
-                        {trade.signal && ` · ${trade.signal}`}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className={`text-xs font-mono font-bold ${trade.pnl_sol >= 0 ? "text-primary" : "text-destructive"}`}>
-                      {trade.pnl_sol >= 0 ? "+" : ""}{trade.pnl_sol.toFixed(4)} SOL
-                    </p>
-                    <p className="text-[10px] font-mono text-muted-foreground">
-                      {new Date(trade.created_at).toLocaleString("en", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                    </p>
-                  </div>
-                </div>
-              ))
-            )}
-          </motion.div>
-        )}
-
-        {tab === "config" && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-xl border border-border bg-card p-6 space-y-4">
-            <h3 className="text-xs font-mono text-muted-foreground uppercase mb-2">Strategy Configuration</h3>
-            <div className="grid grid-cols-2 gap-4">
+            {/* Snapshot stats row */}
+            <div className="grid grid-cols-3 gap-3 mt-6 pt-4 border-t border-border">
               {[
-                { label: "Strategy", value: agent.category },
-                { label: "Risk Profile", value: getRiskLabel(agent.model) },
-                { label: "Funded", value: getFundAmount(agent.system_prompt) },
-                { label: "Status", value: agent.status },
-                { label: "Public", value: agent.is_public ? "Yes" : "No" },
-                { label: "Created", value: new Date(agent.created_at).toLocaleDateString() },
-              ].map((item) => (
-                <div key={item.label}>
-                  <p className="text-[10px] font-mono text-muted-foreground uppercase">{item.label}</p>
-                  <p className="text-sm font-mono text-foreground">{item.value}</p>
+                { label: "Best Day", value: `+${Math.max(...snapshots.map(s => s.pnl_sol), 0).toFixed(2)} SOL` },
+                { label: "Total Trades", value: totalTrades.toString() },
+                { label: "Win Rate", value: `${winRate.toFixed(1)}%` },
+              ].map((s) => (
+                <div key={s.label} className="text-center">
+                  <p className="text-[10px] font-mono text-muted-foreground uppercase">{s.label}</p>
+                  <p className="text-xs font-mono font-medium text-foreground mt-0.5">{s.value}</p>
                 </div>
               ))}
             </div>
           </motion.div>
         )}
 
+        {/* Trade History */}
+        {tab === "trades" && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-2">
+            {trades.length === 0 ? (
+              <div className="text-center py-16 rounded-xl border border-dashed border-border">
+                <Clock className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground font-mono">No trades recorded yet.</p>
+                <p className="text-[11px] text-muted-foreground font-mono mt-1">Start the agent to begin trading.</p>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Recent trades</span>
+                  <span className="text-[10px] font-mono text-muted-foreground">{trades.length} records</span>
+                </div>
+                {trades.map((trade, i) => (
+                  <motion.div
+                    key={trade.id}
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.03 }}
+                    className="rounded-xl border border-border bg-card p-4 flex items-center justify-between hover:border-border/80 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${
+                        trade.action === "buy" ? "bg-primary/10 text-primary" : "bg-destructive/10 text-destructive"
+                      }`}>
+                        {trade.action.toUpperCase()}
+                      </span>
+                      <div>
+                        <span className="text-sm font-mono font-medium">{trade.token_symbol}</span>
+                        <p className="text-[10px] font-mono text-muted-foreground">
+                          {trade.amount_sol} SOL @ ${trade.price.toFixed(6)}
+                          {trade.signal && <span className="text-primary/70"> · {trade.signal}</span>}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-xs font-mono font-bold ${trade.pnl_sol >= 0 ? "text-primary" : "text-destructive"}`}>
+                        {trade.pnl_sol >= 0 ? "+" : ""}{trade.pnl_sol.toFixed(4)} SOL
+                      </p>
+                      <p className="text-[10px] font-mono text-muted-foreground">
+                        {new Date(trade.created_at).toLocaleString("en", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                      </p>
+                    </div>
+                  </motion.div>
+                ))}
+              </>
+            )}
+          </motion.div>
+        )}
+
+        {/* Strategy Config */}
+        {tab === "config" && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-xl border border-border bg-card p-6 space-y-4">
+            <h3 className="text-xs font-mono text-muted-foreground uppercase tracking-wider mb-4">Strategy Configuration</h3>
+            <div className="grid grid-cols-2 gap-4">
+              {[
+                { label: "Strategy", value: agent.category },
+                { label: "Risk Profile", value: getRiskLabel(agent.model) },
+                { label: "Funded", value: getFundAmount(agent.system_prompt) },
+                { label: "Status", value: agent.status },
+                { label: "Visibility", value: agent.is_public ? "Public" : "Private" },
+                { label: "Created", value: new Date(agent.created_at).toLocaleDateString() },
+              ].map((item) => (
+                <div key={item.label} className="rounded-lg bg-secondary/30 border border-border p-3">
+                  <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-1">{item.label}</p>
+                  <p className="text-sm font-mono text-foreground">{item.value}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Copy Trade CTA */}
+            <div className="mt-4 pt-4 border-t border-border">
+              <motion.button
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.99 }}
+                onClick={handleCopyTrade}
+                disabled={copying}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-primary/10 border border-primary/20 text-sm font-mono text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
+              >
+                {copying ? <Loader2 className="h-4 w-4 animate-spin" /> : <GitFork className="h-4 w-4" />}
+                Copy this strategy to my dashboard
+              </motion.button>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Wallet */}
         {tab === "wallet" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-xl border border-border bg-card p-6 space-y-6">
             <div className="flex items-center gap-3">
-              <img src={agentHalo} alt="" className="h-10 w-10 rounded-full object-cover" />
+              <div className="h-10 w-10 rounded-xl border border-primary/30 bg-primary/5 flex items-center justify-center">
+                <span className="text-primary font-mono">◆</span>
+              </div>
               <div>
                 <h3 className="text-sm font-mono font-medium">Agent Wallet</h3>
                 <p className="text-[10px] font-mono text-muted-foreground">Dedicated Solana wallet for this agent</p>
@@ -315,7 +434,6 @@ const AgentDetail = () => {
 
             {wallet ? (
               <div className="space-y-4">
-                {/* Address */}
                 <div className="rounded-lg bg-secondary/50 border border-border p-4">
                   <p className="text-[10px] font-mono text-muted-foreground uppercase mb-1">Deposit Address</p>
                   <div className="flex items-center gap-2">
@@ -336,8 +454,6 @@ const AgentDetail = () => {
                     </a>
                   </div>
                 </div>
-
-                {/* Balance */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-lg bg-secondary/50 border border-border p-4">
                     <p className="text-[10px] font-mono text-muted-foreground uppercase mb-1">Balance</p>
@@ -348,8 +464,6 @@ const AgentDetail = () => {
                     <p className="text-lg font-mono font-bold text-foreground">{agent.status === "running" ? "Trading" : "Idle"}</p>
                   </div>
                 </div>
-
-                {/* Instructions */}
                 <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
                   <p className="text-xs font-mono text-primary font-medium mb-1">How to fund your agent</p>
                   <ol className="text-[10px] font-mono text-muted-foreground space-y-1 list-decimal list-inside">

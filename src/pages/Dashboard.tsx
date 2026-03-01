@@ -8,12 +8,11 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import {
-  Plus, Play, Square, RotateCcw, Trash2, ArrowLeft,
-  Rocket, Bot, Loader2, Eye, Wallet, Info,
+  Play, Square, RotateCcw, Trash2, ArrowLeft,
+  Bot, Loader2, Eye, Info,
 } from "lucide-react";
 import AgentNetwork from "@/components/AgentNetwork";
 import ActivityFeed from "@/components/ActivityFeed";
-import agentHalo from "@/assets/agent-halo.png";
 import { motion, AnimatePresence } from "framer-motion";
 
 const AGENT_TYPES = [
@@ -232,12 +231,8 @@ const Dashboard = () => {
                       whileHover={{ y: -2, transition: { duration: 0.15 } }}
                       className="relative rounded-xl border border-border bg-card p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 transition-colors duration-200 hover:border-primary/20 overflow-hidden"
                     >
-                      {/* Halo background watermark */}
-                      <img
-                        src={agentHalo}
-                        alt=""
-                        className={`absolute left-3 top-1/2 -translate-y-1/2 h-12 w-12 rounded-full object-cover pointer-events-none ${isRunning ? "opacity-20" : "opacity-10 grayscale"}`}
-                      />
+                      {/* Agent icon watermark */}
+                      <span className={`absolute left-5 top-1/2 -translate-y-1/2 font-mono text-2xl pointer-events-none ${isRunning ? "text-primary/15" : "text-muted-foreground/10"}`}>◆</span>
 
                       <div className="flex items-center gap-3 min-w-0 relative z-10">
                         <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${isRunning ? "bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.6)]" : "bg-muted-foreground"}`} />
