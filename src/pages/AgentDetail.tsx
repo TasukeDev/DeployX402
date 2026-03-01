@@ -190,6 +190,9 @@ const AgentDetail = () => {
   };
 
   const [balanceRefreshing, setBalanceRefreshing] = useState(false);
+  const [withdrawAddress, setWithdrawAddress] = useState("");
+  const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [withdrawing, setWithdrawing] = useState(false);
 
   const refreshBalance = useCallback(async () => {
     if (!wallet) return;
@@ -211,6 +214,33 @@ const AgentDetail = () => {
     }
     setBalanceRefreshing(false);
   }, [wallet, toast]);
+
+  const withdrawSol = useCallback(async () => {
+    if (!wallet || !withdrawAddress.trim() || !withdrawAmount) return;
+    const amount = parseFloat(withdrawAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast({ title: "Invalid amount", variant: "destructive" });
+      return;
+    }
+    setWithdrawing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("withdraw-sol", {
+        body: { agent_id: id, to_address: withdrawAddress.trim(), amount_sol: amount },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setWallet(prev => prev ? { ...prev, balance_sol: data.new_balance } : prev);
+      setWithdrawAddress("");
+      setWithdrawAmount("");
+      toast({
+        title: "Withdrawal sent!",
+        description: `${amount} SOL → ${withdrawAddress.slice(0, 6)}...${withdrawAddress.slice(-4)} · ${data.tx_signature?.slice(0, 8)}...`,
+      });
+    } catch (e: any) {
+      toast({ title: "Withdrawal failed", description: e.message, variant: "destructive" });
+    }
+    setWithdrawing(false);
+  }, [wallet, withdrawAddress, withdrawAmount, id, toast]);
 
   const generateWallet = async () => {
     setWalletLoading(true);
@@ -888,38 +918,80 @@ const AgentDetail = () => {
 
                 {/* Withdraw Section */}
                 <div className="rounded-lg border border-border bg-secondary/20 p-4 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <ArrowDownToLine className="h-3.5 w-3.5 text-primary" />
-                    <p className="text-xs font-mono font-medium">Withdraw Funds</p>
-                  </div>
-                  <p className="text-[10px] font-mono text-muted-foreground">
-                    To withdraw, stop the agent, then transfer SOL from the agent wallet address to your personal wallet using any Solana wallet app.
-                  </p>
-                  <div className="rounded-lg bg-secondary/50 border border-border p-3 space-y-1.5">
-                    <p className="text-[9px] font-mono text-muted-foreground uppercase tracking-wider">Steps to withdraw</p>
-                    <ol className="text-[10px] font-mono text-foreground space-y-1 list-decimal list-inside">
-                      <li>Stop the agent (to pause trading)</li>
-                      <li>Import the agent wallet in Phantom or Solflare</li>
-                      <li>Send SOL to your personal address</li>
-                    </ol>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {agent.status === "running" && (
-                      <button
-                        onClick={toggleStatus}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-destructive/10 border border-destructive/20 text-[10px] font-mono text-destructive hover:bg-destructive/20 transition-colors"
-                      >
-                        <Square className="h-3 w-3" /> Stop Agent
-                      </button>
-                    )}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <ArrowDownToLine className="h-3.5 w-3.5 text-primary" />
+                      <p className="text-xs font-mono font-medium">Withdraw SOL</p>
+                    </div>
                     <a
                       href={`https://solscan.io/account/${wallet.public_key}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary border border-border text-[10px] font-mono text-muted-foreground hover:text-foreground transition-colors"
+                      className="flex items-center gap-1 text-[10px] font-mono text-muted-foreground hover:text-foreground transition-colors"
                     >
-                      <ExternalLink className="h-3 w-3" /> View on Solscan
+                      <ExternalLink className="h-2.5 w-2.5" /> Solscan
                     </a>
+                  </div>
+
+                  {agent.status === "running" && (
+                    <div className="flex items-start gap-2 rounded-lg bg-warning/10 border border-warning/20 p-2.5">
+                      <AlertTriangle className="h-3 w-3 text-warning mt-0.5 shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-[10px] font-mono text-warning">Agent is currently trading. Stop it before withdrawing to avoid conflicts.</p>
+                        <button
+                          onClick={toggleStatus}
+                          className="mt-1.5 flex items-center gap-1 text-[10px] font-mono text-warning underline underline-offset-2 hover:no-underline"
+                        >
+                          <Square className="h-2.5 w-2.5" /> Stop agent now
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <div>
+                      <label className="text-[9px] font-mono text-muted-foreground uppercase tracking-wider block mb-1">Destination Address</label>
+                      <input
+                        type="text"
+                        placeholder="Solana wallet address (base58)"
+                        value={withdrawAddress}
+                        onChange={e => setWithdrawAddress(e.target.value)}
+                        className="w-full text-[11px] font-mono bg-background border border-input rounded-md px-3 py-2 placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-mono text-muted-foreground uppercase tracking-wider block mb-1">
+                        Amount (SOL) · Available: {Math.max(0, wallet.balance_sol - 0.000005).toFixed(6)} SOL
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.001"
+                          placeholder="0.00"
+                          value={withdrawAmount}
+                          onChange={e => setWithdrawAmount(e.target.value)}
+                          className="flex-1 text-[11px] font-mono bg-background border border-input rounded-md px-3 py-2 placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                        />
+                        <button
+                          onClick={() => setWithdrawAmount(Math.max(0, wallet.balance_sol - 0.000005).toFixed(6))}
+                          className="px-2.5 py-1.5 rounded-md bg-secondary border border-border text-[10px] font-mono text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          Max
+                        </button>
+                      </div>
+                    </div>
+                    <button
+                      onClick={withdrawSol}
+                      disabled={withdrawing || !withdrawAddress.trim() || !withdrawAmount || parseFloat(withdrawAmount) <= 0}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-[11px] font-mono font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {withdrawing ? (
+                        <><Loader2 className="h-3 w-3 animate-spin" /> Sending...</>
+                      ) : (
+                        <><ArrowDownToLine className="h-3 w-3" /> Withdraw SOL</>
+                      )}
+                    </button>
                   </div>
                 </div>
 
