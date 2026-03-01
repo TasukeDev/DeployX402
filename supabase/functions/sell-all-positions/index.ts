@@ -46,7 +46,7 @@ async function getTokenPrice(tokenAddress: string): Promise<number | null> {
 }
 
 async function getJupiterQuote(inputMint: string, outputMint: string, amount: number): Promise<any> {
-  const url = `https://lite-api.jup.ag/swap/v1/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount}&slippageBps=150`;
+  const url = `https://lite-api.jup.ag/swap/v1/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount}&slippageBps=300`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Jupiter quote failed: ${await res.text()}`);
   return res.json();
@@ -120,6 +120,35 @@ async function getSolBalance(publicKey: string): Promise<number> {
   });
   const data = await res.json();
   return (data.result?.value || 0) / 1e9;
+}
+
+// Fetch all SPL token accounts with a non-zero balance for a wallet
+async function getOnChainTokenBalances(publicKey: string): Promise<Array<{ mint: string; amount: number; decimals: number }>> {
+  const res = await fetch(SOLANA_RPC, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0", id: 1,
+      method: "getTokenAccountsByOwner",
+      params: [
+        publicKey,
+        { programId: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" },
+        { encoding: "jsonParsed", commitment: "confirmed" },
+      ],
+    }),
+  });
+  const data = await res.json();
+  const accounts = data.result?.value || [];
+  return accounts
+    .map((acc: any) => {
+      const info = acc.account?.data?.parsed?.info;
+      return {
+        mint: info?.mint,
+        amount: parseFloat(info?.tokenAmount?.amount || "0"),
+        decimals: info?.tokenAmount?.decimals ?? 6,
+      };
+    })
+    .filter((t: any) => t.mint && t.amount > 0);
 }
 
 async function updatePnlSnapshot(supabase: any, agentId: string, userId: string, realizedPnl: number, isWin: boolean) {
@@ -203,30 +232,20 @@ serve(async (req) => {
       });
     }
 
-    // Get all open positions
+    const results = [];
+
+    // ── Step 1: Sell DB open positions ───────────────────────────────────────
     const { data: openPositions } = await supabase
       .from("agent_positions")
       .select("*")
       .eq("agent_id", agent_id)
       .eq("status", "open");
 
-    if (!openPositions || openPositions.length === 0) {
-      return new Response(JSON.stringify({ message: "No open positions to sell", sold: 0 }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const results = [];
-
-    for (const pos of openPositions) {
+    for (const pos of (openPositions || [])) {
       try {
         const currentPrice = await getTokenPrice(pos.token_address);
         const tokenAmountRaw = Math.floor(pos.token_amount * 1e6);
-
-        if (tokenAmountRaw < 1) {
-          results.push({ token: pos.token_symbol, status: "skipped", reason: "amount too small" });
-          continue;
-        }
+        if (tokenAmountRaw < 1) continue;
 
         const sellQuote = await getJupiterQuote(pos.token_address, SOL_MINT, tokenAmountRaw);
         const sellSwapTx = await getJupiterSwapTx(sellQuote, wallet.public_key);
@@ -246,7 +265,7 @@ serve(async (req) => {
         }).eq("id", pos.id);
 
         await supabase.from("trade_history").insert({
-          agent_id: agent_id,
+          agent_id,
           user_id: user.id,
           token_symbol: pos.token_symbol,
           token_address: pos.token_address,
@@ -260,12 +279,58 @@ serve(async (req) => {
         });
 
         await updatePnlSnapshot(supabase, agent_id, user.id, realizedPnl, realizedPnl > 0);
-
-        results.push({ token: pos.token_symbol, status: "sold", pnl: realizedPnl, tx: txSig });
-        console.log(`Sold ${pos.token_symbol}: ${txSig}`);
+        results.push({ token: pos.token_symbol, status: "sold", source: "db", pnl: realizedPnl, tx: txSig });
+        console.log(`Sold DB position ${pos.token_symbol}: ${txSig}`);
       } catch (e) {
-        console.error(`Failed to sell ${pos.token_symbol}:`, e);
-        results.push({ token: pos.token_symbol, status: "error", error: String(e) });
+        console.error(`Failed to sell DB position ${pos.token_symbol}:`, e);
+        results.push({ token: pos.token_symbol, status: "error", source: "db", error: String(e) });
+      }
+    }
+
+    // ── Step 2: Sell any remaining on-chain token balances ───────────────────
+    const onChainTokens = await getOnChainTokenBalances(wallet.public_key);
+    console.log(`On-chain token balances found: ${JSON.stringify(onChainTokens)}`);
+
+    for (const tok of onChainTokens) {
+      // Skip if already handled by DB position
+      const alreadySold = results.find(r => r.status === "sold" && r.source === "db");
+      // We still try to sell — Jupiter will handle dust gracefully
+      try {
+        if (tok.amount < 1) {
+          console.log(`Skipping dust: mint=${tok.mint} amount=${tok.amount}`);
+          continue;
+        }
+
+        console.log(`Selling on-chain token: mint=${tok.mint} amount=${tok.amount}`);
+        const sellQuote = await getJupiterQuote(tok.mint, SOL_MINT, tok.amount);
+        const sellSwapTx = await getJupiterSwapTx(sellQuote, wallet.public_key);
+        const signedSellTx = await signTransaction(sellSwapTx, wallet.encrypted_private_key);
+        await sendTransaction(signedSellTx);
+        const txSig = await extractTxSignature(signedSellTx);
+
+        const solReceived = parseInt(sellQuote.outAmount || "0") / 1e9;
+        const currentPrice = await getTokenPrice(tok.mint);
+
+        // Log in trade_history as an on-chain cleanup sell
+        await supabase.from("trade_history").insert({
+          agent_id,
+          user_id: user.id,
+          token_symbol: tok.mint.slice(0, 6),
+          token_address: tok.mint,
+          action: "sell",
+          amount_sol: solReceived,
+          token_amount: tok.amount / Math.pow(10, tok.decimals),
+          price: currentPrice ?? 0,
+          pnl_sol: 0,
+          signal: "on-chain cleanup sell",
+          tx_signature: txSig,
+        });
+
+        results.push({ token: tok.mint, status: "sold", source: "onchain", solReceived, tx: txSig });
+        console.log(`On-chain sell complete: ${txSig}`);
+      } catch (e) {
+        console.error(`Failed on-chain sell for ${tok.mint}:`, e);
+        results.push({ token: tok.mint, status: "error", source: "onchain", error: String(e) });
       }
     }
 
@@ -273,8 +338,9 @@ serve(async (req) => {
     const newBalance = await getSolBalance(wallet.public_key);
     await supabase.from("agent_wallets").update({ balance_sol: newBalance }).eq("agent_id", agent_id);
 
+    const soldCount = results.filter(r => r.status === "sold").length;
     return new Response(
-      JSON.stringify({ message: "Sell-all complete", sold: results.filter(r => r.status === "sold").length, results }),
+      JSON.stringify({ message: "Sell-all complete", sold: soldCount, results }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
