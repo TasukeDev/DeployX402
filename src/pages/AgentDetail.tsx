@@ -385,6 +385,10 @@ const AgentDetail = () => {
     if (!agent || positions.length === 0) return;
     setSellingAll(true);
     try {
+      // Stop the agent first so it doesn't buy again immediately
+      await supabase.from("agents").update({ status: "stopped" }).eq("id", agent.id);
+      setAgent((prev) => prev ? { ...prev, status: "stopped" } : prev);
+
       const { data, error } = await supabase.functions.invoke("sell-all-positions", {
         body: { agent_id: agent.id },
       });
@@ -392,9 +396,10 @@ const AgentDetail = () => {
       if (data?.error) throw new Error(data.error);
       toast({
         title: `Sold ${data.sold} position${data.sold !== 1 ? "s" : ""}`,
-        description: "All open positions have been closed.",
+        description: "All open positions closed. Agent has been stopped.",
       });
       setPositions([]);
+      fetchAll();
     } catch (e: any) {
       toast({ title: "Sell-all failed", description: e.message, variant: "destructive" });
     }
