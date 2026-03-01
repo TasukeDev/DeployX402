@@ -10,10 +10,12 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Play, Square, RotateCcw, Trash2, ArrowLeft,
   Bot, Loader2, Eye, Info, Wallet, Copy, ExternalLink,
+  TrendingUp, TrendingDown, BarChart3, Target,
 } from "lucide-react";
 import AgentNetwork from "@/components/AgentNetwork";
 import ActivityFeed from "@/components/ActivityFeed";
 import { motion, AnimatePresence } from "framer-motion";
+import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts";
 
 const AGENT_TYPES = [
   { value: "scalper", label: "Scalper – Quick trades, small gains" },
@@ -43,6 +45,8 @@ const Dashboard = () => {
   const [agentType, setAgentType] = useState("");
   const [actingOn, setActingOn] = useState<string | null>(null);
   const [simInterval, setSimInterval] = useState<NodeJS.Timeout | null>(null);
+  const [portfolioSnapshots, setPortfolioSnapshots] = useState<{ date: string; pnl: number }[]>([]);
+  const [openPositionsCount, setOpenPositionsCount] = useState(0);
 
   useEffect(() => {
     if (!authenticated && !connected) { navigate("/auth"); return; }
@@ -90,18 +94,31 @@ const Dashboard = () => {
     if (agentList.length > 0) {
       const ids = agentList.map((a) => a.id);
 
-      // Fetch latest pnl_snapshot for each agent
-      const { data: snaps } = await supabase
-        .from("pnl_snapshots")
-        .select("agent_id, pnl_sol, snapshot_at")
-        .in("agent_id", ids)
-        .order("snapshot_at", { ascending: false });
+      // Fetch latest pnl_snapshot for each agent + all snapshots for equity curve + open positions
+      const [snapsRes, allSnapsRes, positionsRes] = await Promise.all([
+        supabase.from("pnl_snapshots").select("agent_id, pnl_sol, snapshot_at").in("agent_id", ids).order("snapshot_at", { ascending: false }),
+        supabase.from("pnl_snapshots").select("agent_id, pnl_sol, snapshot_at").in("agent_id", ids).order("snapshot_at", { ascending: true }),
+        supabase.from("agent_positions").select("id").in("agent_id", ids).eq("status", "open"),
+      ]);
 
-      if (snaps) {
+      if (snapsRes.data) {
         const latestMap: Record<string, number> = {};
-        snaps.forEach((s) => { if (!(s.agent_id in latestMap)) latestMap[s.agent_id] = s.pnl_sol; });
+        snapsRes.data.forEach((s) => { if (!(s.agent_id in latestMap)) latestMap[s.agent_id] = s.pnl_sol; });
         setAgentPnl(latestMap);
       }
+
+      // Build combined equity curve: sum PnL across all agents per day
+      if (allSnapsRes.data && allSnapsRes.data.length > 0) {
+        const dailyMap: Record<string, number> = {};
+        allSnapsRes.data.forEach((s) => {
+          const day = new Date(s.snapshot_at).toLocaleDateString("en", { month: "short", day: "numeric" });
+          dailyMap[day] = (dailyMap[day] ?? 0) + s.pnl_sol;
+        });
+        const curve = Object.entries(dailyMap).map(([date, pnl]) => ({ date, pnl: parseFloat(pnl.toFixed(4)) }));
+        setPortfolioSnapshots(curve);
+      }
+
+      setOpenPositionsCount(positionsRes.data?.length ?? 0);
 
       // Fetch wallets for all agents
       const session = await supabase.auth.getSession();
@@ -273,6 +290,80 @@ const Dashboard = () => {
             <AgentNetwork agents={agents} />
           </motion.div>
         </div>
+
+        {/* Portfolio Overview */}
+        {!loading && agents.length > 0 && (() => {
+          const totalPnl = Object.values(agentPnl).reduce((a, b) => a + b, 0);
+          const runningCount = agents.filter((a) => a.status === "running").length;
+          const pnlPos = totalPnl >= 0;
+          return (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.25 }}
+              className="mb-10 rounded-xl border border-border bg-card p-6"
+            >
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="h-3.5 w-3.5 text-primary" />
+                  <h2 className="text-xs font-mono font-medium text-foreground uppercase tracking-wider">Portfolio Overview</h2>
+                </div>
+                <span className="text-[10px] font-mono text-muted-foreground">{agents.length} agents</span>
+              </div>
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                <div className="rounded-lg bg-secondary/40 border border-border p-3 flex items-center gap-3">
+                  {pnlPos ? <TrendingUp className="h-4 w-4 text-primary shrink-0" /> : <TrendingDown className="h-4 w-4 text-destructive shrink-0" />}
+                  <div>
+                    <p className="text-[9px] font-mono text-muted-foreground uppercase">Total PnL</p>
+                    <p className={`text-sm font-mono font-bold ${pnlPos ? "text-primary" : "text-destructive"}`}>
+                      {pnlPos ? "+" : ""}{totalPnl.toFixed(3)} SOL
+                    </p>
+                  </div>
+                </div>
+                <div className="rounded-lg bg-secondary/40 border border-border p-3 flex items-center gap-3">
+                  <Target className="h-4 w-4 text-primary/70 shrink-0" />
+                  <div>
+                    <p className="text-[9px] font-mono text-muted-foreground uppercase">Open Positions</p>
+                    <p className="text-sm font-mono font-bold text-foreground">{openPositionsCount}</p>
+                  </div>
+                </div>
+                <div className="rounded-lg bg-secondary/40 border border-border p-3 flex items-center gap-3">
+                  <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${runningCount > 0 ? "bg-primary animate-pulse" : "bg-muted-foreground"}`} />
+                  <div>
+                    <p className="text-[9px] font-mono text-muted-foreground uppercase">Active Agents</p>
+                    <p className="text-sm font-mono font-bold text-foreground">{runningCount} / {agents.length}</p>
+                  </div>
+                </div>
+              </div>
+              {portfolioSnapshots.length > 0 ? (
+                <div>
+                  <p className="text-[9px] font-mono text-muted-foreground uppercase tracking-wider mb-3">Combined Equity Curve</p>
+                  <ResponsiveContainer width="100%" height={120}>
+                    <AreaChart data={portfolioSnapshots}>
+                      <defs>
+                        <linearGradient id="portfolioGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.2} />
+                          <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <XAxis dataKey="date" tick={{ fontSize: 9, fontFamily: "JetBrains Mono", fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                      <YAxis hide />
+                      <Tooltip
+                        contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 10, fontFamily: "JetBrains Mono" }}
+                        formatter={(v: number) => [`${v >= 0 ? "+" : ""}${v.toFixed(4)} SOL`, "PnL"]}
+                      />
+                      <Area type="monotone" dataKey="pnl" stroke="hsl(var(--primary))" fill="url(#portfolioGrad)" strokeWidth={1.5} dot={false} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="h-20 flex items-center justify-center rounded-lg bg-secondary/20 border border-dashed border-border">
+                  <p className="text-[10px] font-mono text-muted-foreground">Equity curve appears after first trades</p>
+                </div>
+              )}
+            </motion.div>
+          );
+        })()}
 
         {/* Deployed agents */}
         {loading ? (
