@@ -55,6 +55,18 @@ function decodeBase58(s: string): Uint8Array {
 }
 
 async function getSolBalance(publicKey: string): Promise<number> {
+  try {
+    // Try Solscan public API first
+    const res = await fetch(`https://public-api.solscan.io/account?address=${publicKey}`, {
+      headers: { "Accept": "application/json" },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.lamports !== undefined) return data.lamports / 1e9;
+    }
+  } catch { /* fall through to RPC */ }
+
+  // Fallback to Solana RPC
   const res = await fetch(SOLANA_RPC, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
