@@ -36,6 +36,7 @@ const Dashboard = () => {
   const { toast } = useToast();
 
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [agentPnl, setAgentPnl] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [agentType, setAgentType] = useState("");
@@ -52,7 +53,7 @@ const Dashboard = () => {
     const hasRunning = agents.some((a) => a.status === "running");
     if (hasRunning) {
       const runSim = () => supabase.functions.invoke("simulate-trades").catch(console.error);
-      runSim(); // immediate first run
+      runSim();
       const id = setInterval(runSim, 15000);
       setSimInterval(id);
       return () => clearInterval(id);
@@ -62,10 +63,47 @@ const Dashboard = () => {
     }
   }, [agents.map((a) => `${a.id}:${a.status}`).join(",")]);
 
+  // Realtime: refresh PnL whenever a new pnl_snapshot is inserted
+  useEffect(() => {
+    if (agents.length === 0) return;
+    const channel = supabase
+      .channel("dashboard-pnl-snapshots")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "pnl_snapshots" },
+        (payload) => {
+          const snap = payload.new as { agent_id: string; pnl_sol: number };
+          setAgentPnl((prev) => ({ ...prev, [snap.agent_id]: snap.pnl_sol }));
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [agents.length]);
+
   const fetchAgents = async () => {
     const { data, error } = await supabase.from("agents").select("*").order("created_at", { ascending: false });
-    if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
-    else setAgents(data || []);
+    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); setLoading(false); return; }
+    const agentList = data || [];
+    setAgents(agentList);
+
+    // Fetch latest pnl_snapshot for each agent
+    if (agentList.length > 0) {
+      const ids = agentList.map((a) => a.id);
+      const { data: snaps } = await supabase
+        .from("pnl_snapshots")
+        .select("agent_id, pnl_sol, snapshot_at")
+        .in("agent_id", ids)
+        .order("snapshot_at", { ascending: false });
+
+      if (snaps) {
+        // Keep only the latest snapshot per agent
+        const latestMap: Record<string, number> = {};
+        snaps.forEach((s) => {
+          if (!(s.agent_id in latestMap)) latestMap[s.agent_id] = s.pnl_sol;
+        });
+        setAgentPnl(latestMap);
+      }
+    }
     setLoading(false);
   };
 
@@ -74,7 +112,6 @@ const Dashboard = () => {
     setCreating(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { toast({ title: "Error", description: "Not authenticated", variant: "destructive" }); setCreating(false); return; }
-    const typeMeta = AGENT_TYPES.find((t) => t.value === agentType);
     const name = `${agentType}-${Date.now().toString(36).slice(-4)}`;
     const { error } = await supabase.from("agents").insert({
       name, category: agentType, model: "risk:medium",
@@ -100,8 +137,6 @@ const Dashboard = () => {
     else { setAgents((prev) => prev.filter((a) => a.id !== agentId)); toast({ title: "Agent deleted" }); }
     setActingOn(null);
   };
-
-  const mockPnl = (id: string) => { const h = id.charCodeAt(0) + id.charCodeAt(1); return ((h % 80) - 20) / 10; };
 
   return (
     <div className="min-h-screen bg-background">
@@ -220,7 +255,7 @@ const Dashboard = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2 space-y-2">
                 {agents.map((agent, i) => {
-                  const pnl = mockPnl(agent.id);
+                  const pnl = agentPnl[agent.id] ?? null;
                   const isRunning = agent.status === "running";
                   return (
                     <motion.div
@@ -245,8 +280,8 @@ const Dashboard = () => {
                       </div>
 
                       <div className="flex items-center gap-3 shrink-0">
-                        <span className={`text-xs font-mono font-bold ${pnl >= 0 ? "text-primary" : "text-destructive"}`}>
-                          {pnl >= 0 ? "+" : ""}{pnl.toFixed(2)} SOL
+                        <span className={`text-xs font-mono font-bold ${pnl === null ? "text-muted-foreground" : pnl >= 0 ? "text-primary" : "text-destructive"}`}>
+                          {pnl === null ? "—" : `${pnl >= 0 ? "+" : ""}${pnl.toFixed(2)} SOL`}
                         </span>
 
                         <button onClick={() => navigate(`/agent/${agent.id}`)} className="p-1.5 rounded-md bg-secondary text-muted-foreground hover:text-foreground transition-colors">
