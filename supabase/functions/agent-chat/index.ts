@@ -86,7 +86,7 @@ Be concise, professional, and use crypto-native language. Keep responses short.`
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: agent.model,
+        model: "google/gemini-3-flash-preview",
         messages: aiMessages,
         stream: true,
       }),
