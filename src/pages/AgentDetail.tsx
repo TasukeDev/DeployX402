@@ -167,7 +167,21 @@ const AgentDetail = () => {
     ]);
 
     const walletData = await walletRes.json();
-    if (Array.isArray(walletData) && walletData.length > 0) setWallet(walletData[0] as AgentWallet);
+    if (Array.isArray(walletData) && walletData.length > 0) {
+      const w = walletData[0] as AgentWallet;
+      // Fetch live on-chain balance instead of stale DB value
+      try {
+        const rpcRes = await fetch("https://api.mainnet-beta.solana.com", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "getBalance", params: [w.public_key, { commitment: "confirmed" }] }),
+        });
+        const rpcJson = await rpcRes.json();
+        const lamports = rpcJson?.result?.value ?? 0;
+        w.balance_sol = lamports / 1_000_000_000;
+      } catch { /* keep DB value on RPC failure */ }
+      setWallet(w);
+    }
     if (positionsRes.data) setPositions(positionsRes.data as Position[]);
 
     if (agentRes.error) {
@@ -214,6 +228,13 @@ const AgentDetail = () => {
     }
     setBalanceRefreshing(false);
   }, [wallet, toast]);
+
+  // Auto-refresh balance every 30s when on wallet tab
+  useEffect(() => {
+    if (tab !== "wallet" || !wallet) return;
+    const interval = setInterval(() => refreshBalance(), 30000);
+    return () => clearInterval(interval);
+  }, [tab, wallet, refreshBalance]);
 
   const withdrawSol = useCallback(async () => {
     if (!wallet || !withdrawAddress.trim() || !withdrawAmount) return;
