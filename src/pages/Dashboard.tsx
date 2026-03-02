@@ -243,7 +243,6 @@ const Dashboard = () => {
               </>
             ) : authenticated ? (
               <div className="flex items-center gap-3">
-                <span className="text-[10px] font-mono text-muted-foreground">{userDisplay}</span>
                 <button onClick={() => supabase.auth.signOut()} className="text-[10px] font-mono text-muted-foreground hover:text-foreground transition-colors border border-border/50 px-2 py-1 rounded-md">sign out</button>
               </div>
             ) : (
