@@ -7,6 +7,7 @@ import FooterCTA from "@/components/FooterCTA";
 import StickyBottomCTA from "@/components/StickyBottomCTA";
 import MarqueeTicker from "@/components/MarqueeTicker";
 import LiveStatsBar from "@/components/LiveStatsBar";
+import FeaturedAgent from "@/components/FeaturedAgent";
 
 const Index = () => {
   return (
@@ -18,6 +19,8 @@ const Index = () => {
       <div className="divider-fade" />
       <WhatIsSection />
       <MarqueeTicker />
+      <div className="divider-fade" />
+      <FeaturedAgent />
       <div className="divider-fade" />
       <HowItWorksSection />
       <div className="divider-fade" />
