@@ -10,6 +10,7 @@ import NotFound from "@/pages/NotFound";
 import Docs from "@/pages/Docs";
 import Leaderboard from "@/pages/Leaderboard";
 import AgentPublicProfile from "@/pages/AgentPublicProfile";
+import ApiDocs from "@/pages/ApiDocs";
 
 const AnimatedRoutes = () => {
   const location = useLocation();
@@ -25,6 +26,7 @@ const AnimatedRoutes = () => {
         <Route path="/docs" element={<PageTransition><Docs /></PageTransition>} />
         <Route path="/leaderboard" element={<PageTransition><Leaderboard /></PageTransition>} />
         <Route path="/agent/:id/public" element={<PageTransition><AgentPublicProfile /></PageTransition>} />
+        <Route path="/api-docs" element={<PageTransition><ApiDocs /></PageTransition>} />
         <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
       </Routes>
     </AnimatePresence>
