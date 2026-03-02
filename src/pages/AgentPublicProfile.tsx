@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { useAuth } from "@/components/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import confetti from "canvas-confetti";
 
 interface AgentInfo {
   id: string;
@@ -30,11 +31,37 @@ interface Snapshot {
   snapshot_at: string;
 }
 
+// Inject/update a <meta> tag dynamically
+function setMeta(property: string, content: string) {
+  let el = document.querySelector(`meta[property="${property}"]`) as HTMLMetaElement | null;
+  if (!el) el = document.querySelector(`meta[name="${property}"]`) as HTMLMetaElement | null;
+  if (el) {
+    el.setAttribute("content", content);
+  } else {
+    const tag = document.createElement("meta");
+    tag.setAttribute(property.startsWith("og:") || property.startsWith("twitter:") ? "property" : "name", property);
+    tag.setAttribute("content", content);
+    document.head.appendChild(tag);
+  }
+}
+
+function restoreDefaultMeta() {
+  const defaultTitle = "DeployX402 — Autonomous AI Trading on Solana";
+  const defaultDesc = "Deploy autonomous AI trading agents on Solana. Snipe, trade, and manage memecoins fully on-chain. No infrastructure needed.";
+  document.title = defaultTitle;
+  setMeta("og:title", defaultTitle);
+  setMeta("twitter:title", defaultTitle);
+  setMeta("og:description", defaultDesc);
+  setMeta("twitter:description", defaultDesc);
+  setMeta("og:url", "https://launchpad-agent-flow.lovable.app");
+}
+
 const AgentPublicProfile = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { authenticated } = useAuth();
   const { toast } = useToast();
+  const confettiFired = useRef(false);
 
   const [agent, setAgent] = useState<AgentInfo | null>(null);
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
@@ -49,7 +76,7 @@ const AgentPublicProfile = () => {
   useEffect(() => {
     if (!id) return;
 
-    const fetch = async () => {
+    const fetchData = async () => {
       const { data: agentData, error } = await supabase
         .from("agents")
         .select("id, name, category, model, system_prompt, status, created_at, is_public")
@@ -79,14 +106,67 @@ const AgentPublicProfile = () => {
       ]);
 
       const snaps = snapRes.data ?? [];
+      const latest = snaps.length > 0 ? snaps[snaps.length - 1] : null;
       setSnapshots(snaps);
-      setLatestSnap(snaps.length > 0 ? snaps[snaps.length - 1] : null);
+      setLatestSnap(latest);
       setRecentTrades(tradeRes.data ?? []);
       setLoading(false);
+
+      // Inject dynamic OG meta tags
+      if (agentData && latest) {
+        const pnlSign = latest.pnl_sol >= 0 ? "+" : "";
+        const pnlText = `${pnlSign}${latest.pnl_sol.toFixed(3)} SOL`;
+        const winText = `${latest.win_rate?.toFixed(0) ?? "?"}% win rate`;
+        const title = `${agentData.name} — ${pnlText} | DeployX402`;
+        const desc = `AI trading agent on Solana · ${pnlText} PnL · ${winText} over ${latest.total_trades} trades. Copy-trade this agent on DeployX402.`;
+        const url = window.location.href;
+
+        document.title = title;
+        setMeta("og:title", title);
+        setMeta("twitter:title", title);
+        setMeta("og:description", desc);
+        setMeta("twitter:description", desc);
+        setMeta("og:url", url);
+        setMeta("twitter:card", "summary_large_image");
+        setMeta("og:type", "website");
+      }
     };
 
-    fetch();
+    fetchData();
+
+    // Restore default meta on unmount
+    return () => { restoreDefaultMeta(); };
   }, [id]);
+
+  // Fire confetti once when positive PnL loads
+  useEffect(() => {
+    if (latestSnap && latestSnap.pnl_sol > 0 && !confettiFired.current) {
+      confettiFired.current = true;
+      const end = Date.now() + 1800;
+      const colors = ["#3ddc84", "#22c55e", "#86efac", "#ffffff"];
+
+      const frame = () => {
+        confetti({
+          particleCount: 3,
+          angle: 60,
+          spread: 55,
+          origin: { x: 0 },
+          colors,
+          ticks: 180,
+        });
+        confetti({
+          particleCount: 3,
+          angle: 120,
+          spread: 55,
+          origin: { x: 1 },
+          colors,
+          ticks: 180,
+        });
+        if (Date.now() < end) requestAnimationFrame(frame);
+      };
+      frame();
+    }
+  }, [latestSnap]);
 
   const handleCopyTrade = async () => {
     if (!authenticated) { navigate("/auth"); return; }
@@ -204,7 +284,19 @@ const AgentPublicProfile = () => {
             <span className="h-1 w-1 rounded-full bg-primary animate-pulse" />
             <span className="text-[9px] font-mono text-primary uppercase">{agent.status}</span>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-mono font-bold text-foreground">{agent.name}</h1>
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-3xl sm:text-4xl font-mono font-bold text-foreground">{agent.name}</h1>
+            {pnlPositive && latestSnap && (
+              <motion.span
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.4, type: "spring", stiffness: 300 }}
+                className="text-[10px] font-mono font-bold uppercase tracking-widest text-primary-foreground bg-primary px-2 py-1 rounded-sm"
+              >
+                🏆 Profitable
+              </motion.span>
+            )}
+          </div>
           <p className="text-xs font-mono text-muted-foreground">{agent.model}</p>
         </motion.div>
 
@@ -226,7 +318,7 @@ const AgentPublicProfile = () => {
             },
             {
               label: "Win Rate",
-              value: latestSnap ? `${latestSnap.win_rate.toFixed(0)}%` : "—",
+              value: latestSnap ? `${latestSnap.win_rate?.toFixed(0) ?? "?"}%` : "—",
               icon: Zap,
               positive: (latestSnap?.win_rate ?? 0) >= 50,
             },
@@ -239,7 +331,11 @@ const AgentPublicProfile = () => {
           ].map((stat) => (
             <div
               key={stat.label}
-              className="flex flex-col gap-2 border border-border/50 bg-card/30 rounded-lg p-4"
+              className={`flex flex-col gap-2 border rounded-lg p-4 transition-all ${
+                stat.positive
+                  ? "border-border/50 bg-card/30"
+                  : "border-destructive/30 bg-destructive/5"
+              }`}
             >
               <div className="flex items-center gap-2">
                 <stat.icon className={`h-3 w-3 ${stat.positive ? "text-primary" : "text-destructive"}`} />
