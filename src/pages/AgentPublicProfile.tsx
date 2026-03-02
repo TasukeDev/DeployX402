@@ -74,6 +74,7 @@ const AgentPublicProfile = () => {
   const [copying, setCopying] = useState(false);
   const [rank, setRank] = useState<number | null>(null);
   const [copyingLink, setCopyingLink] = useState(false);
+  const [topAgents, setTopAgents] = useState<{ id: string; name: string; pnl_sol: number; win_rate: number | null; total_trades: number }[]>([]);
 
   useEffect(() => {
     if (!id) return;
@@ -130,6 +131,30 @@ const AgentPublicProfile = () => {
           const sorted = [...latestByAgent.entries()].sort((a, b) => b[1] - a[1]);
           const position = sorted.findIndex(([aid]) => aid === id);
           if (position !== -1) setRank(position + 1);
+
+          // Fetch top-5 agent names for the leaderboard preview
+          const top5Ids = sorted.slice(0, 5).map(([aid]) => aid);
+          const { data: topAgentRows } = await supabase
+            .from("agents")
+            .select("id, name")
+            .in("id", top5Ids)
+            .eq("is_public", true);
+
+          if (topAgentRows) {
+            const nameMap = new Map(topAgentRows.map((a) => [a.id, a.name]));
+            setTopAgents(
+              sorted.slice(0, 5).map(([aid, pnl], idx) => {
+                const snap = allSnaps.find((s) => s.agent_id === aid);
+                return {
+                  id: aid,
+                  name: nameMap.get(aid) ?? "Unknown",
+                  pnl_sol: pnl,
+                  win_rate: (snap as any)?.win_rate ?? null,
+                  total_trades: (snap as any)?.total_trades ?? 0,
+                };
+              })
+            );
+          }
         }
       }
 
@@ -520,6 +545,65 @@ const AgentPublicProfile = () => {
                           {isPositive ? "+" : ""}{trade.pnl_sol.toFixed(4)} SOL
                         </span>
                       )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+
+        {/* Leaderboard Preview */}
+        {topAgents.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="border border-border/50 bg-card/30 rounded-xl overflow-hidden"
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border/40">
+              <div className="flex items-center gap-2">
+                <Trophy className="h-3.5 w-3.5 text-primary" />
+                <span className="text-xs font-mono font-semibold text-foreground">Top Agents Leaderboard</span>
+              </div>
+              <button
+                onClick={() => navigate("/leaderboard")}
+                className="text-[9px] font-mono text-primary hover:underline flex items-center gap-1"
+              >
+                View all <ExternalLink className="h-2.5 w-2.5" />
+              </button>
+            </div>
+            <div className="divide-y divide-border/30">
+              {topAgents.map((a, idx) => {
+                const isCurrent = a.id === id;
+                const pnlPos = a.pnl_sol >= 0;
+                const medal = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : null;
+                return (
+                  <div
+                    key={a.id}
+                    onClick={() => navigate(`/agent/${a.id}/public`)}
+                    className={`flex items-center justify-between px-6 py-3 cursor-pointer transition-colors hover:bg-muted/10 ${
+                      isCurrent ? "bg-primary/5 border-l-2 border-primary" : ""
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-[10px] font-mono text-muted-foreground w-4 tabular-nums">
+                        {medal ?? `#${idx + 1}`}
+                      </span>
+                      <span className={`text-xs font-mono font-semibold ${isCurrent ? "text-primary" : "text-foreground"}`}>
+                        {a.name}
+                        {isCurrent && <span className="ml-1.5 text-[9px] text-primary opacity-70">(you)</span>}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      {a.win_rate !== null && (
+                        <span className="text-[9px] font-mono text-muted-foreground tabular-nums hidden sm:block">
+                          {a.win_rate.toFixed(0)}% wr
+                        </span>
+                      )}
+                      <span className={`text-xs font-mono font-bold tabular-nums ${pnlPos ? "text-primary" : "text-destructive"}`}>
+                        {pnlPos ? "+" : ""}{a.pnl_sol.toFixed(3)} SOL
+                      </span>
                     </div>
                   </div>
                 );
