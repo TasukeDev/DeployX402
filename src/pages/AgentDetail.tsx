@@ -538,9 +538,9 @@ const AgentDetail = () => {
 
   if (!agent) return null;
 
-  const totalPnl = snapshots.length > 0 ? snapshots[snapshots.length - 1].pnl_sol : 0;
+  const totalPnl = snapshots.length > 0 ? (snapshots[snapshots.length - 1].pnl_sol ?? 0) : 0;
   const totalTrades = snapshots.length > 0 ? snapshots[snapshots.length - 1].total_trades : trades.length;
-  const winRate = snapshots.length > 0 ? snapshots[snapshots.length - 1].win_rate : 0;
+  const winRate = snapshots.length > 0 ? (snapshots[snapshots.length - 1].win_rate ?? 0) : 0;
   const pnlPositive = totalPnl >= 0;
 
   return (
@@ -821,9 +821,11 @@ const AgentDetail = () => {
                         </div>
                         <div className="text-right">
                           <div className="flex items-center justify-end gap-1.5">
-                            <p className={`text-xs font-mono font-bold ${trade.pnl_sol >= 0 ? "text-primary" : "text-destructive"}`}>
-                              {trade.pnl_sol >= 0 ? "+" : ""}{trade.pnl_sol.toFixed(4)} SOL
-                            </p>
+                            {trade.pnl_sol !== null && (
+                              <p className={`text-xs font-mono font-bold ${trade.pnl_sol >= 0 ? "text-primary" : "text-destructive"}`}>
+                                {trade.pnl_sol >= 0 ? "+" : ""}{trade.pnl_sol.toFixed(4)} SOL
+                              </p>
+                            )}
                             {trade.tx_signature && (
                               <a
                                 href={`https://solscan.io/tx/${trade.tx_signature}`}
