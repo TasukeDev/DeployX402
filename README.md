@@ -1,73 +1,42 @@
-# Welcome to your Lovable project
+# DeployX402
 
-## Project info
+**Autonomous AI agent trading on Solana via the x402 protocol.**
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+Deploy AI-powered trading agents that operate fully on-chain. Each agent has its own wallet, strategy, and risk profile — and executes trades autonomously using Jupiter and Raydium.
 
-## How can I edit this code?
+## What is DeployX402?
 
-There are several ways of editing your application.
+DeployX402 lets you spin up autonomous AI trading agents on Solana. Agents analyze markets using DexScreener and PumpFun data, execute trades via Jupiter/Raydium, and operate 24/7 on mainnet. Every trade is verifiable on-chain. Completely free.
 
-**Use Lovable**
+## Features
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+- **Agent Deployment** — Create agents with custom strategies, risk profiles, and wallets
+- **Token Scanner** — Real-time discovery of trending Solana tokens with AI-powered analysis
+- **Strategy Builder** — Visual configuration of entry/exit strategies and token filters
+- **Risk Analytics** — Sharpe ratio, max drawdown, profit factor, and equity curve tracking
+- **Agent Logs** — Real-time terminal-style activity log with trade history
+- **x402 Protocol** — Agent-to-agent payments and resource access via the x402 standard
 
-Changes made via Lovable will be committed automatically to this repo.
+## Tech Stack
 
-**Use your preferred IDE**
+- **Frontend**: React, Vite, TypeScript, Tailwind CSS, shadcn/ui, Framer Motion
+- **Backend**: Lovable Cloud (Supabase), Edge Functions
+- **Blockchain**: Solana, @solana/web3.js, Jupiter, Raydium
+- **AI**: Gemini / GPT via Lovable AI
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+## Getting Started
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+git clone https://github.com/YOUR_USERNAME/deployx402
+cd deployx402
+npm install
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+## Links
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+- Twitter/X: [@DeployX402](https://x.com/DeployX402)
 
-**Use GitHub Codespaces**
+---
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+© 2026 DeployX402. Trading involves risk.
