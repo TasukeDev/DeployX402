@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import confetti from "canvas-confetti";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "@/integrations/supabase/client";
@@ -295,6 +296,8 @@ const AgentDetail = () => {
   const [withdrawing, setWithdrawing] = useState(false);
   const [recentTxs, setRecentTxs] = useState<any[]>([]);
   const [txsLoading, setTxsLoading] = useState(false);
+  // Track whether wallet has already crossed the funded threshold to fire confetti only once
+  const walletFundedRef = useRef(false);
 
   const fetchRecentTxs = useCallback(async (agentId: string) => {
     setTxsLoading(true);
@@ -307,31 +310,43 @@ const AgentDetail = () => {
     setTxsLoading(false);
   }, []);
 
-  const refreshBalance = useCallback(async () => {
+  const refreshBalance = useCallback(async (silent = false) => {
     if (!wallet) return;
-    setBalanceRefreshing(true);
+    if (!silent) setBalanceRefreshing(true);
     try {
       const { data, error } = await supabase.functions.invoke("withdraw-sol", {
         body: { action: "get_balance", agent_id: wallet.agent_id ?? id },
       });
       if (error) throw error;
       if (data?.balance_sol !== undefined) {
-        setWallet(prev => prev ? { ...prev, balance_sol: data.balance_sol } : prev);
+        const newBal: number = data.balance_sol;
+        setWallet(prev => {
+          if (!prev) return prev;
+          // Fire confetti + toast the first time balance crosses 0.005 SOL
+          if (!walletFundedRef.current && newBal >= 0.005) {
+            walletFundedRef.current = true;
+            confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 }, colors: ["#22c55e", "#16a34a", "#4ade80", "#86efac"] });
+            toast({ title: "🎉 Wallet funded!", description: `${newBal.toFixed(4)} SOL received. Your agent is ready to trade!` });
+          }
+          return { ...prev, balance_sol: newBal };
+        });
       }
     } catch {
-      toast({ title: "Failed to fetch balance", variant: "destructive" });
+      if (!silent) toast({ title: "Failed to fetch balance", variant: "destructive" });
     }
-    setBalanceRefreshing(false);
+    if (!silent) setBalanceRefreshing(false);
   }, [wallet, id, toast]);
 
-  // Auto-refresh balance every 30s when on wallet tab, and fetch txs once
+  // Auto-refresh balance every 15s when on wallet tab, and fetch txs once
   useEffect(() => {
     if (tab !== "wallet" || !wallet) return;
+    // Seed the funded ref with current balance so we don't re-fire for already-funded wallets
+    if (wallet.balance_sol >= 0.005) walletFundedRef.current = true;
     const agentId = wallet.agent_id ?? id ?? "";
     fetchRecentTxs(agentId);
-    const interval = setInterval(() => refreshBalance(), 30000);
+    const interval = setInterval(() => refreshBalance(true), 15000);
     return () => clearInterval(interval);
-  }, [tab, wallet, refreshBalance, fetchRecentTxs, id]);
+  }, [tab, wallet?.agent_id, refreshBalance, fetchRecentTxs, id]);
 
   const fetchSparklines = useCallback(async (tokens: Array<{ mint: string }>) => {
     const results: Record<string, { t: number; p: number }[]> = {};
@@ -1541,7 +1556,7 @@ const AgentDetail = () => {
                     <p className="text-[10px] font-mono text-muted-foreground uppercase mb-1 flex items-center justify-between">
                       Balance
                       <button
-                        onClick={refreshBalance}
+                        onClick={() => refreshBalance(false)}
                         disabled={balanceRefreshing}
                         className="text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
                         title="Refresh balance"
