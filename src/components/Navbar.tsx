@@ -10,6 +10,7 @@ const NAV_LINKS = [
   { href: "#ecosystem", label: "Ecosystem" },
   { href: "/leaderboard", label: "Leaderboard", isRoute: true },
   { href: "/docs", label: "Docs", isRoute: true },
+  { href: "/api-docs", label: "API", isRoute: true },
 ];
 
 const Navbar = () => {
