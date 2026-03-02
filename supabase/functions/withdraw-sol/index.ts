@@ -155,7 +155,9 @@ async function buildTransferTransaction(
 }
 
 async function signTransaction(txBytes: Uint8Array, pkcs8Base64: string): Promise<Uint8Array> {
-  const pkcs8Bytes = Uint8Array.from(atob(pkcs8Base64), (c) => c.charCodeAt(0));
+  // Strip any whitespace/newlines that might cause atob to fail
+  const cleaned = pkcs8Base64.replace(/\s/g, "");
+  const pkcs8Bytes = Uint8Array.from(atob(cleaned), (c) => c.charCodeAt(0));
   const privateKey = await crypto.subtle.importKey(
     "pkcs8",
     pkcs8Bytes.buffer,
