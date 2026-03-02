@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Terminal, Filter, Download, TrendingUp, TrendingDown, Zap, AlertTriangle, Info } from "lucide-react";
+import { Terminal, Filter, Download, TrendingUp, TrendingDown, Zap, AlertTriangle, Info, Radio } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Trade {
   id: string;
@@ -33,49 +34,38 @@ const tradeToLog = (t: Trade): LogEntry => {
 
   if (isTp) {
     return {
-      id: t.id,
-      timestamp: new Date(t.created_at),
-      level: "success",
-      category: "risk",
+      id: t.id, timestamp: new Date(t.created_at), level: "success", category: "risk",
       message: `🎯 Take-profit triggered on ${t.token_symbol}`,
       detail: `Sold ${t.token_amount.toFixed(2)} tokens · PnL: +${pnl.toFixed(4)} SOL · ${t.signal}`,
     };
   }
   if (isSl) {
     return {
-      id: t.id,
-      timestamp: new Date(t.created_at),
-      level: "error",
-      category: "risk",
+      id: t.id, timestamp: new Date(t.created_at), level: "error", category: "risk",
       message: `🛑 Stop-loss triggered on ${t.token_symbol}`,
       detail: `Sold ${t.token_amount.toFixed(2)} tokens · PnL: ${pnl.toFixed(4)} SOL · ${t.signal}`,
     };
   }
   if (isBuy) {
     return {
-      id: t.id,
-      timestamp: new Date(t.created_at),
-      level: "success",
-      category: "trade",
+      id: t.id, timestamp: new Date(t.created_at), level: "success", category: "trade",
       message: `📥 Bought ${t.token_symbol}`,
       detail: `${t.amount_sol} SOL · ${t.token_amount.toFixed(2)} tokens @ $${t.price.toFixed(6)} · Signal: ${t.signal || "manual"}`,
     };
   }
   return {
-    id: t.id,
-    timestamp: new Date(t.created_at),
-    level: pnl >= 0 ? "success" : "warning",
-    category: "trade",
+    id: t.id, timestamp: new Date(t.created_at),
+    level: pnl >= 0 ? "success" : "warning", category: "trade",
     message: `📤 Sold ${t.token_symbol}`,
     detail: `${t.amount_sol} SOL · PnL: ${pnl >= 0 ? "+" : ""}${pnl.toFixed(4)} SOL · Signal: ${t.signal || "manual"}`,
   };
 };
 
-const LEVEL_STYLES: Record<string, { icon: React.ElementType; color: string; bg: string; dot: string }> = {
-  info:    { icon: Info,          color: "text-muted-foreground", bg: "bg-secondary/50",         dot: "bg-muted-foreground" },
-  success: { icon: TrendingUp,    color: "text-primary",          bg: "bg-primary/5",             dot: "bg-primary" },
-  warning: { icon: TrendingDown,  color: "text-amber-400",        bg: "bg-amber-400/5",           dot: "bg-amber-400" },
-  error:   { icon: AlertTriangle, color: "text-destructive",      bg: "bg-destructive/5",         dot: "bg-destructive" },
+const LEVEL_STYLES: Record<string, { icon: React.ElementType; color: string; bg: string }> = {
+  info:    { icon: Info,          color: "text-muted-foreground", bg: "bg-secondary/50" },
+  success: { icon: TrendingUp,    color: "text-primary",          bg: "bg-primary/5" },
+  warning: { icon: TrendingDown,  color: "text-amber-400",        bg: "bg-amber-400/5" },
+  error:   { icon: AlertTriangle, color: "text-destructive",      bg: "bg-destructive/5" },
 };
 
 const FILTERS = ["All", "Trade", "Signal", "Risk", "System"] as const;
@@ -90,12 +80,67 @@ export const AgentLogs = ({ agentId, trades }: AgentLogsProps) => {
   const [filter, setFilter] = useState<FilterType>("All");
   const [autoScroll, setAutoScroll] = useState(true);
   const [newCount, setNewCount] = useState(0);
+  const [realtimeTrades, setRealtimeTrades] = useState<Trade[]>([]);
+  const [isConnected, setIsConnected] = useState(false);
+  const [flashId, setFlashId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const prevTradesLen = useRef(trades.length);
+  const prevLen = useRef(trades.length);
 
-  // Build log entries from trades + system events
+  // Merge prop trades with realtime-injected ones (dedup by id)
+  const allTrades = useCallback(() => {
+    const map = new Map<string, Trade>();
+    for (const t of trades) map.set(t.id, t);
+    for (const t of realtimeTrades) map.set(t.id, t);
+    return [...map.values()];
+  }, [trades, realtimeTrades]);
+
+  // Supabase realtime subscription
+  useEffect(() => {
+    if (!agentId) return;
+
+    const channel = supabase
+      .channel(`agent-logs-${agentId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "trade_history",
+          filter: `agent_id=eq.${agentId}`,
+        },
+        (payload) => {
+          const newTrade = payload.new as Trade;
+          setRealtimeTrades((prev) => {
+            // Avoid duplicate if already in prop trades
+            if (prev.some((t) => t.id === newTrade.id)) return prev;
+            return [newTrade, ...prev];
+          });
+          setNewCount((n) => n + 1);
+          setFlashId(newTrade.id);
+          setTimeout(() => setFlashId(null), 2500);
+          if (autoScroll) {
+            setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+          }
+        }
+      )
+      .subscribe((status) => {
+        setIsConnected(status === "SUBSCRIBED");
+      });
+
+    return () => { supabase.removeChannel(channel); };
+  }, [agentId, autoScroll]);
+
+  // Also detect new trades from props (fallback)
+  useEffect(() => {
+    if (trades.length > prevLen.current) {
+      if (autoScroll) setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+    }
+    prevLen.current = trades.length;
+  }, [trades.length, autoScroll]);
+
+  const merged = allTrades();
+
   const logs: LogEntry[] = [
-    // System boot entry
     {
       id: "boot",
       timestamp: new Date(Date.now() - 9999999),
@@ -104,18 +149,8 @@ export const AgentLogs = ({ agentId, trades }: AgentLogsProps) => {
       message: "🤖 Agent runtime initialized",
       detail: "Connected to Solana mainnet · DexScreener feed active · Jupiter routing enabled",
     },
-    ...trades.map(tradeToLog),
+    ...merged.map(tradeToLog),
   ].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-
-  // Detect new trades
-  useEffect(() => {
-    if (trades.length > prevTradesLen.current) {
-      const added = trades.length - prevTradesLen.current;
-      setNewCount((n) => n + added);
-      if (autoScroll) setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
-    }
-    prevTradesLen.current = trades.length;
-  }, [trades.length, autoScroll]);
 
   const filtered = logs.filter((l) => {
     if (filter === "All") return true;
@@ -139,11 +174,20 @@ export const AgentLogs = ({ agentId, trades }: AgentLogsProps) => {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Terminal className="h-4 w-4 text-primary" />
           <span className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Activity Log</span>
           <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-secondary border border-border text-muted-foreground">
             {filtered.length} entries
+          </span>
+          {/* Realtime connection badge */}
+          <span className={`flex items-center gap-1 text-[9px] font-mono px-1.5 py-0.5 rounded border ${
+            isConnected
+              ? "bg-primary/10 border-primary/20 text-primary"
+              : "bg-secondary border-border text-muted-foreground"
+          }`}>
+            <Radio className={`h-2 w-2 ${isConnected ? "animate-pulse" : ""}`} />
+            {isConnected ? "REALTIME" : "CONNECTING"}
           </span>
           {newCount > 0 && (
             <motion.span
@@ -191,9 +235,8 @@ export const AgentLogs = ({ agentId, trades }: AgentLogsProps) => {
         ))}
       </div>
 
-      {/* Terminal-style log */}
+      {/* Terminal window */}
       <div className="rounded-xl border border-border bg-card overflow-hidden">
-        {/* Terminal title bar */}
         <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border bg-secondary/30">
           <div className="flex gap-1.5">
             <div className="h-2.5 w-2.5 rounded-full bg-destructive/60" />
@@ -201,9 +244,11 @@ export const AgentLogs = ({ agentId, trades }: AgentLogsProps) => {
             <div className="h-2.5 w-2.5 rounded-full bg-primary/40" />
           </div>
           <span className="text-[10px] font-mono text-muted-foreground ml-1">agent.log</span>
-          <div className="ml-auto flex items-center gap-1">
-            <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-            <span className="text-[9px] font-mono text-primary">LIVE</span>
+          <div className="ml-auto flex items-center gap-1.5">
+            <span className={`h-1.5 w-1.5 rounded-full ${isConnected ? "bg-primary animate-pulse" : "bg-muted-foreground"}`} />
+            <span className={`text-[9px] font-mono ${isConnected ? "text-primary" : "text-muted-foreground"}`}>
+              {isConnected ? "LIVE" : "—"}
+            </span>
           </div>
         </div>
 
@@ -212,6 +257,7 @@ export const AgentLogs = ({ agentId, trades }: AgentLogsProps) => {
             {filtered.map((log) => {
               const style = LEVEL_STYLES[log.level];
               const Icon = style.icon;
+              const isFlashing = flashId === log.id;
               return (
                 <motion.div
                   key={log.id}
@@ -219,15 +265,22 @@ export const AgentLogs = ({ agentId, trades }: AgentLogsProps) => {
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.2 }}
-                  className={`rounded-lg p-2.5 ${style.bg}`}
+                  className={`rounded-lg p-2.5 transition-colors duration-500 ${
+                    isFlashing
+                      ? "border border-primary/40 shadow-[0_0_12px_hsl(var(--primary)/0.15)] bg-primary/5"
+                      : style.bg
+                  }`}
                 >
                   <div className="flex items-start gap-2">
-                    <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded mt-0.5`}>
+                    <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded mt-0.5">
                       <Icon className={`h-3 w-3 ${style.color}`} />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className={`text-[11px] font-medium ${style.color}`}>{log.message}</span>
+                        {isFlashing && (
+                          <span className="text-[8px] font-mono px-1 rounded bg-primary/10 text-primary border border-primary/20">NEW</span>
+                        )}
                         <span className="text-[8px] font-mono text-muted-foreground/50 ml-auto shrink-0">
                           {log.timestamp.toLocaleTimeString("en", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
                         </span>
@@ -247,7 +300,6 @@ export const AgentLogs = ({ agentId, trades }: AgentLogsProps) => {
               <p className="text-[10px] font-mono text-muted-foreground">No log entries for this filter.</p>
             </div>
           )}
-
           <div ref={bottomRef} />
         </div>
       </div>
