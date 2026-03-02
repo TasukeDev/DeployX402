@@ -8,7 +8,12 @@ import {
   ArrowLeft, TrendingUp, TrendingDown, Play, Square, Loader2,
   Settings, BarChart3, Clock, Zap, Wallet, Copy, ExternalLink, GitFork, Radio,
   Target, AlertTriangle, ArrowDownToLine, RefreshCw, MessageSquare, Send, Bot, User,
+  ScanSearch, ShieldAlert, Settings2, Terminal,
 } from "lucide-react";
+import { TokenScanner } from "@/components/TokenScanner";
+import { RiskAnalytics } from "@/components/RiskAnalytics";
+import { StrategyBuilder } from "@/components/StrategyBuilder";
+import { AgentLogs } from "@/components/AgentLogs";
 import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -72,8 +77,8 @@ const AgentDetail = () => {
   const [loading, setLoading] = useState(true);
   const [copying, setCopying] = useState(false);
   const [liveIndicator, setLiveIndicator] = useState(false);
-  const initialTab = (searchParams.get("tab") as "pnl" | "trades" | "positions" | "config" | "wallet" | "chat") || "pnl";
-  const [tab, setTab] = useState<"pnl" | "trades" | "positions" | "config" | "wallet" | "chat">(initialTab);
+  const initialTab = (searchParams.get("tab") as "pnl" | "trades" | "positions" | "config" | "wallet" | "chat" | "scanner" | "risk" | "strategy" | "logs") || "pnl";
+  const [tab, setTab] = useState<"pnl" | "trades" | "positions" | "config" | "wallet" | "chat" | "scanner" | "risk" | "strategy" | "logs">(initialTab);
   const [positions, setPositions] = useState<Position[]>([]);
   const [positionPrices, setPositionPrices] = useState<Record<string, number>>({});
   const [pricesLoading, setPricesLoading] = useState(false);
@@ -642,9 +647,13 @@ const AgentDetail = () => {
             { key: "pnl", label: "PnL Chart", icon: TrendingUp },
             { key: "trades", label: "Trade History", icon: Clock },
             { key: "positions", label: "Positions", icon: Target },
+            { key: "scanner", label: "Scanner", icon: ScanSearch },
+            { key: "risk", label: "Risk", icon: ShieldAlert },
+            { key: "strategy", label: "Builder", icon: Settings2 },
+            { key: "logs", label: "Logs", icon: Terminal },
             { key: "chat", label: "Chat", icon: MessageSquare },
             { key: "wallet", label: "Wallet", icon: Wallet },
-            { key: "config", label: "Strategy", icon: Settings },
+            { key: "config", label: "Config", icon: Settings },
           ] as const).map((t) => (
             <button
               key={t.key}
@@ -1644,6 +1653,33 @@ const AgentDetail = () => {
               </div>
             )}
           </motion.div>
+        )}
+
+        {/* Token Scanner */}
+        {tab === "scanner" && (
+          <TokenScanner agentId={agent.id} onBuySignal={(token) => {
+            setChatInput(`Buy ${token.baseToken.symbol} (${token.baseToken.address}) with 0.01 SOL`);
+            setTab("chat");
+          }} />
+        )}
+
+        {/* Risk Analytics */}
+        {tab === "risk" && (
+          <RiskAnalytics trades={trades} snapshots={snapshots} />
+        )}
+
+        {/* Strategy Builder */}
+        {tab === "strategy" && (
+          <StrategyBuilder
+            agentId={agent.id}
+            takeProfitPct={agent.take_profit_pct}
+            stopLossPct={agent.stop_loss_pct}
+          />
+        )}
+
+        {/* Agent Logs */}
+        {tab === "logs" && (
+          <AgentLogs agentId={agent.id} trades={trades} />
         )}
       </div>
     </div>
