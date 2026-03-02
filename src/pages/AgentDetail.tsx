@@ -680,11 +680,28 @@ const AgentDetail = () => {
         {/* PnL Chart */}
         {tab === "pnl" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-xl border border-border bg-card p-6">
-            <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-6">
               <h3 className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Cumulative PnL</h3>
-              <span className={`text-sm font-mono font-bold ${pnlPositive ? "text-primary" : "text-destructive"}`}>
-                {snapshots.length > 0 ? `${pnlPositive ? "+" : ""}${totalPnl.toFixed(4)} SOL` : "—"}
-              </span>
+              <div className="flex items-center gap-3">
+                <span className={`text-sm font-mono font-bold ${pnlPositive ? "text-primary" : "text-destructive"}`}>
+                  {snapshots.length > 0 ? `${pnlPositive ? "+" : ""}${totalPnl.toFixed(4)} SOL` : "—"}
+                </span>
+                <button
+                  onClick={() => {
+                    const pnlText = `${pnlPositive ? "+" : ""}${totalPnl.toFixed(3)} SOL`;
+                    const text = `🤖 My AI trading agent "${agent.name}" on @DeployX402\n\n📈 PnL: ${pnlText}\n🎯 Win Rate: ${winRate.toFixed(0)}% across ${totalTrades} trades\n\nDeploy your own autonomous Solana trading agent 👇`;
+                    window.open(
+                      `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent("https://github.com/TasukeDev/DeployX402")}`,
+                      "_blank", "noopener,noreferrer"
+                    );
+                  }}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-border bg-card text-[10px] font-mono text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-colors"
+                  title="Share on X"
+                >
+                  <Share2 className="h-3 w-3" />
+                  Share
+                </button>
+              </div>
             </div>
 
             {snapshots.length === 0 ? (
