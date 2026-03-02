@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Search, Rocket, Code2, Terminal, Webhook,
   Braces, Shield, Layers, Cpu, ChevronRight, Copy, Check,
-  Globe, Key, Bot, Wallet, BarChart3, Zap, Link2, Database
+  Globe, Key, Bot, Wallet, BarChart3, Zap, Link2, Database, CreditCard, Network
 } from "lucide-react";
 import { Highlight, themes } from "prism-react-renderer";
 
@@ -464,6 +464,195 @@ const balance = await wallet.getBalance();`,
       },
     ],
   },
+  {
+    label: "x402 Protocol",
+    items: [
+      {
+        id: "x402-overview",
+        icon: CreditCard,
+        title: "What is x402?",
+        content: [
+          {
+            type: "text",
+            value: "The x402 protocol is an open standard for machine-to-machine payments over HTTP. It extends HTTP 402 (Payment Required) to enable autonomous agents to pay for resources, data, and services on-chain — without human intervention.",
+          },
+          {
+            type: "cards",
+            cards: [
+              { icon: CreditCard, title: "HTTP 402 Native", desc: "When a resource requires payment, the server responds with 402 + a payment envelope. Agents parse and fulfill the payment automatically." },
+              { icon: Zap, title: "Instant Settlement", desc: "Payments settle on Solana in under 400ms. Agents can access paid APIs, data feeds, and compute resources in real time." },
+              { icon: Shield, title: "Verifiable", desc: "Every x402 payment is signed on-chain and verifiable by both parties. No trust required — just cryptographic proof." },
+              { icon: Network, title: "Agent-Native", desc: "Designed for autonomous agents. No user approval flows, no manual confirmations. Agents pay and proceed programmatically." },
+            ],
+          },
+          { type: "heading", value: "Why x402 for Trading Agents?" },
+          {
+            type: "list",
+            items: [
+              "Pay for premium DexScreener data feeds without API keys",
+              "Access private market intelligence endpoints on demand",
+              "Agent-to-agent service payments — e.g. one agent paying another for a trade signal",
+              "Metered RPC usage — pay per call instead of managing rate limits",
+              "Autonomous subscription renewal for data services",
+            ],
+          },
+        ],
+      },
+      {
+        id: "x402-flow",
+        icon: Zap,
+        title: "Payment Flow",
+        content: [
+          {
+            type: "text",
+            value: "DeployX402 agents speak x402 natively. When an agent encounters a paywalled resource, it automatically handles the payment and retries the request — all within a single trading cycle.",
+          },
+          { type: "heading", value: "Request Lifecycle" },
+          {
+            type: "steps",
+            steps: [
+              { title: "Agent Requests Resource", desc: "Agent sends an HTTP request to a data endpoint or service (e.g. a premium token analytics API)." },
+              { title: "Server Returns 402", desc: "Server responds with HTTP 402 and an x402 payment envelope containing the amount, recipient address, and accepted tokens (e.g. USDC on Solana)." },
+              { title: "Agent Constructs Payment", desc: "Agent parses the payment envelope, constructs a Solana transaction using its custodial wallet, signs it autonomously." },
+              { title: "Payment Broadcast", desc: "Signed transaction is broadcast to Solana mainnet. The x402 payment receipt (tx signature) is attached to the retry request." },
+              { title: "Resource Unlocked", desc: "Server verifies the on-chain payment and returns the requested resource. Agent proceeds with data-driven trading decisions." },
+            ],
+          },
+          { type: "heading", value: "x402 Payment Envelope (JSON)" },
+          {
+            type: "code",
+            lang: "typescript",
+            value: `// 402 response from a paywalled API
+{
+  "x402Version": 1,
+  "accepts": [{
+    "scheme": "exact",
+    "network": "solana-mainnet",
+    "maxAmountRequired": "1000000", // 1 USDC (6 decimals)
+    "resource": "https://api.example.com/v1/token-signals",
+    "description": "Premium token signal data",
+    "mimeType": "application/json",
+    "payTo": "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
+    "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", // USDC
+    "extra": { "timeout": 300 }
+  }]
+}`,
+          },
+        ],
+      },
+      {
+        id: "x402-agents",
+        icon: Bot,
+        title: "Agent x402 Integration",
+        content: [
+          {
+            type: "text",
+            value: "DeployX402 agents have built-in x402 client capabilities. The trading engine automatically detects 402 responses and handles payment negotiation before re-executing the original request.",
+          },
+          { type: "heading", value: "x402 Client in Edge Function" },
+          {
+            type: "code",
+            lang: "typescript",
+            value: `// Automatic x402 handling in the trading engine
+async function fetchWithX402(url: string, agentWallet: Keypair) {
+  const res = await fetch(url);
+  
+  if (res.status === 402) {
+    const envelope = await res.json();
+    const payment = envelope.accepts[0];
+    
+    // Build and sign Solana payment tx
+    const tx = await buildPaymentTx({
+      to: payment.payTo,
+      amount: BigInt(payment.maxAmountRequired),
+      mint: payment.asset,
+      wallet: agentWallet,
+    });
+    
+    const sig = await connection.sendTransaction(tx);
+    
+    // Retry with payment proof
+    return fetch(url, {
+      headers: { "X-PAYMENT": sig, "X-PAYMENT-NETWORK": "solana-mainnet" }
+    });
+  }
+  
+  return res;
+}`,
+          },
+          { type: "heading", value: "Supported Payment Assets" },
+          {
+            type: "list",
+            items: [
+              "SOL (native) — direct lamport transfers for micro-payments",
+              "USDC (EPjFWdd5...) — stable payments for recurring data subscriptions",
+              "Custom SPL tokens — agents can hold and spend any SPL token",
+            ],
+          },
+          { type: "heading", value: "Budget Controls" },
+          {
+            type: "list",
+            items: [
+              "max_x402_spend_sol — Maximum SOL equivalent per cycle for x402 payments",
+              "allowed_x402_domains — Whitelist of domains agents are permitted to pay",
+              "x402_auto_approve — Toggle for autonomous payment authorization (default: true for whitelisted domains)",
+            ],
+          },
+        ],
+      },
+      {
+        id: "x402-agent-to-agent",
+        icon: Network,
+        title: "Agent-to-Agent Payments",
+        content: [
+          {
+            type: "text",
+            value: "DeployX402 extends x402 to agent-to-agent communication. Agents can sell trading signals, market analysis, and execution services to each other autonomously.",
+          },
+          { type: "heading", value: "Signal Marketplace" },
+          {
+            type: "list",
+            items: [
+              "Agents can expose HTTP endpoints that accept x402 payments",
+              "A high-performing agent can sell its trade signals to other agents for SOL/USDC",
+              "Revenue from signal sales is tracked in the agent's PnL dashboard",
+              "Buyers verify signal quality via on-chain trade history before subscribing",
+            ],
+          },
+          { type: "heading", value: "Publish a Signal Feed" },
+          {
+            type: "code",
+            lang: "typescript",
+            value: `// Agent signal server — expose a paywalled endpoint
+app.get("/signals/latest", async (req, res) => {
+  const payment = req.headers["x-payment"];
+  
+  if (!payment) {
+    return res.status(402).json({
+      x402Version: 1,
+      accepts: [{
+        scheme: "exact",
+        network: "solana-mainnet",
+        maxAmountRequired: "500000", // 0.5 USDC
+        payTo: agentWallet.publicKey.toBase58(),
+        asset: USDC_MINT,
+        resource: req.url,
+      }]
+    });
+  }
+  
+  // Verify payment on-chain
+  const verified = await verifyX402Payment(payment);
+  if (!verified) return res.status(403).json({ error: "Invalid payment" });
+  
+  // Return signal data
+  res.json({ signals: await agent.getLatestSignals() });
+});`,
+          },
+        ],
+      },
+    ],
+  },
 ];
 
 /* ── Flatten for lookup ── */
@@ -614,7 +803,7 @@ const Docs = () => {
         </button>
         <div className="flex items-center gap-2 ml-6">
           <span className="text-primary font-mono text-xs">◆</span>
-          <span className="text-sm font-mono font-medium text-foreground tracking-tight">solagent</span>
+          <span className="text-sm font-mono font-medium text-foreground tracking-tight">DeployX402</span>
           <span className="text-sm font-mono text-muted-foreground">Docs</span>
         </div>
         <div className="ml-auto relative max-w-[200px] w-full hidden sm:block">
@@ -722,7 +911,7 @@ const Docs = () => {
       {/* Footer */}
       <div className="md:ml-56 border-t border-border/30 py-6 px-6">
         <p className="text-[10px] font-mono text-muted-foreground text-center">
-          © 2026 SolAgent. Autonomous trading on Solana.
+          © 2026 DeployX402. Autonomous AI agent trading on Solana.
         </p>
       </div>
     </div>
