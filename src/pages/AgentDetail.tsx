@@ -8,7 +8,7 @@ import {
   ArrowLeft, TrendingUp, TrendingDown, Play, Square, Loader2,
   Settings, BarChart3, Clock, Zap, Wallet, Copy, ExternalLink, GitFork, Radio,
   Target, AlertTriangle, ArrowDownToLine, RefreshCw, MessageSquare, Send, Bot, User,
-  ScanSearch, ShieldAlert, Settings2, Terminal,
+  ScanSearch, ShieldAlert, Settings2, Terminal, Share2,
 } from "lucide-react";
 import { TokenScanner } from "@/components/TokenScanner";
 import { RiskAnalytics } from "@/components/RiskAnalytics";
