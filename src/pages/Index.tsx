@@ -8,6 +8,7 @@ import StickyBottomCTA from "@/components/StickyBottomCTA";
 import MarqueeTicker from "@/components/MarqueeTicker";
 import LiveStatsBar from "@/components/LiveStatsBar";
 import FeaturedAgent from "@/components/FeaturedAgent";
+import LeaderboardWidget from "@/components/LeaderboardWidget";
 
 const Index = () => {
   return (
@@ -21,6 +22,8 @@ const Index = () => {
       <MarqueeTicker />
       <div className="divider-fade" />
       <FeaturedAgent />
+      <div className="divider-fade" />
+      <LeaderboardWidget />
       <div className="divider-fade" />
       <HowItWorksSection />
       <div className="divider-fade" />
