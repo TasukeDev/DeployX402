@@ -376,7 +376,7 @@ const AgentDetail = () => {
   }, []);
 
   const syncOnChain = useCallback(async () => {
-    if (!id) return;
+    if (!id || !wallet) return;
     setOnChainSyncing(true);
     try {
       const [onChainRes, posData] = await Promise.all([
@@ -852,7 +852,20 @@ const AgentDetail = () => {
         )}
 
         {/* Open Positions */}
-        {tab === "positions" && (() => {
+        {tab === "positions" && !wallet && (
+          <div className="text-center py-16 rounded-xl border border-dashed border-border">
+            <Wallet className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+            <p className="text-sm font-mono text-muted-foreground mb-1">No wallet generated yet</p>
+            <p className="text-[11px] font-mono text-muted-foreground mb-4">Generate a wallet to start tracking positions.</p>
+            <button
+              onClick={() => setTab("wallet")}
+              className="px-5 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-mono hover:bg-primary/90 transition-colors"
+            >
+              Go to Wallet
+            </button>
+          </div>
+        )}
+        {tab === "positions" && wallet && (() => {
           // ── Portfolio totals ──────────────────────────────────────────────
           const totalCurrentUsd = onChainTokens.reduce((sum, t) => sum + (t.priceUsd !== null ? t.uiAmount * t.priceUsd : 0), 0);
           const totalEntryUsd = positions.reduce((sum, p) => {
