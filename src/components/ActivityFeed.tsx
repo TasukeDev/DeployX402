@@ -9,7 +9,7 @@ interface TradeEvent {
   token_symbol: string;
   action: string;
   amount_sol: number;
-  pnl_sol: number;
+  pnl_sol: number | null;
   signal: string | null;
   created_at: string;
   tx_signature?: string | null;
@@ -120,9 +120,11 @@ const ActivityFeed = ({ agentIds }: ActivityFeedProps) => {
                   )}
                 </div>
                 <div className="text-right shrink-0">
-                  <p className={`text-[10px] font-mono font-bold ${e.pnl_sol >= 0 ? "text-primary" : "text-destructive"}`}>
-                    {e.pnl_sol >= 0 ? "+" : ""}{e.pnl_sol.toFixed(4)}
-                  </p>
+                  {e.pnl_sol !== null && (
+                    <p className={`text-[10px] font-mono font-bold ${e.pnl_sol >= 0 ? "text-primary" : "text-destructive"}`}>
+                      {e.pnl_sol >= 0 ? "+" : ""}{e.pnl_sol.toFixed(4)}
+                    </p>
+                  )}
                   <p className="text-[9px] font-mono text-muted-foreground">{timeAgo(e.created_at)}</p>
                 </div>
               </motion.div>
