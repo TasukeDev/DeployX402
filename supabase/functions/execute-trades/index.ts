@@ -242,6 +242,18 @@ serve(async (req) => {
       });
     }
 
+    // Fetch all strategy configs for running agents
+    const agentIds = runningAgents.map((a: any) => a.id);
+    const { data: strategyConfigs } = await supabase
+      .from("agent_strategy_configs")
+      .select("*")
+      .in("agent_id", agentIds);
+
+    const configByAgent: Record<string, any> = {};
+    for (const cfg of (strategyConfigs || [])) {
+      configByAgent[cfg.agent_id] = cfg;
+    }
+
     // Fetch trending tokens once — throw if unavailable (real data only)
     const trendingTokens = await getTrendingTokens();
     console.log(`Got ${trendingTokens.length} trending tokens from DexScreener`);
@@ -250,9 +262,11 @@ serve(async (req) => {
 
     for (const agent of runningAgents) {
       try {
-        // Per-agent risk management targets (fall back to sensible defaults)
-        const TAKE_PROFIT_PCT = agent.take_profit_pct ?? 0.05;   // e.g. 0.05 = 5%
-        const STOP_LOSS_PCT   = -(agent.stop_loss_pct ?? 0.03);  // e.g. -0.03 = -3%
+        // Per-agent risk management targets
+        const TAKE_PROFIT_PCT = agent.take_profit_pct ?? 0.05;
+        const STOP_LOSS_PCT   = -(agent.stop_loss_pct ?? 0.03);
+        // Load saved strategy config (if any)
+        const cfg = configByAgent[agent.id] ?? null;
 
         // ── Step 1: Check open positions for TP/SL ──────────────────────────
         const { data: openPositions } = await supabase
@@ -325,13 +339,14 @@ serve(async (req) => {
         }
 
         // ── Step 2: Maybe open a new BUY position ────────────────────────────
+        const maxPositions = cfg?.max_open_positions ?? 3;
         const openCount = (openPositions || []).filter(p => p.status === "open").length;
-        if (openCount >= 3) {
+        if (openCount >= maxPositions) {
           results.push({ agent: agent.name, action: "skip", reason: "max_positions" });
           continue;
         }
 
-        // ~80% chance to buy per cycle (increased to ensure trades fire)
+        // ~80% chance to buy per cycle
         if (Math.random() > 0.8) continue;
 
         const { data: wallet, error: walletError } = await supabase
@@ -356,11 +371,28 @@ serve(async (req) => {
           continue;
         }
 
-        const token = pickToken(trendingTokens, agent.category);
+        // Apply strategy config filters to token list
+        let eligibleTokens = trendingTokens;
+        if (cfg) {
+          eligibleTokens = trendingTokens.filter((t) => {
+            if (t.volume24h < (cfg.min_volume_24h ?? 0)) return false;
+            if (t.priceChange24h < (cfg.min_price_change_1h ?? 0)) return false;
+            return true;
+          });
+          if (eligibleTokens.length === 0) {
+            console.log(`Agent ${agent.name}: no tokens passed strategy filters, using all tokens`);
+            eligibleTokens = trendingTokens;
+          }
+          console.log(`Agent ${agent.name}: strategy filter kept ${eligibleTokens.length}/${trendingTokens.length} tokens`);
+        }
 
-        // Use 5-15% of balance per trade, capped at 0.05 SOL
-        const tradeFraction = 0.05 + Math.random() * 0.10;
-        const tradeAmountSol = Math.min(currentBalance * tradeFraction, 0.05);
+        const token = pickToken(eligibleTokens, cfg?.entry_strategy ?? agent.category);
+
+        // Use configured trade amount or fallback to 5-15% of balance, capped at 0.05 SOL
+        const configuredAmount = cfg?.trade_amount_sol ?? null;
+        const tradeAmountSol = configuredAmount
+          ? Math.min(configuredAmount, currentBalance - 0.001)
+          : Math.min(currentBalance * (0.05 + Math.random() * 0.10), 0.05);
         const tradeAmountLamports = Math.floor(tradeAmountSol * 1e9);
 
         if (tradeAmountLamports < 10000) {

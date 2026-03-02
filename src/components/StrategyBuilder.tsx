@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Settings2, Save, RotateCcw, CheckCircle2, Info } from "lucide-react";
+import { Settings2, Save, RotateCcw, CheckCircle2, Info, Loader2, Database } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface StrategyConfig {
   minMarketCapUsd: number;
@@ -89,22 +90,85 @@ const SliderRow = ({
   </div>
 );
 
-export const StrategyBuilder = ({ takeProfitPct, stopLossPct, onSave }: StrategyBuilderProps) => {
+export const StrategyBuilder = ({ agentId, takeProfitPct, stopLossPct, onSave }: StrategyBuilderProps) => {
   const [config, setConfig] = useState<StrategyConfig>({
     ...DEFAULTS,
     trailingStopPct: stopLossPct * 100,
   });
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [hasExisting, setHasExisting] = useState(false);
+
+  // Load existing config from DB
+  useEffect(() => {
+    if (!agentId) return;
+    supabase
+      .from("agent_strategy_configs" as any)
+      .select("*")
+      .eq("agent_id", agentId)
+      .maybeSingle()
+      .then(({ data: rawData }) => {
+        const data = rawData as any;
+        if (data) {
+          setHasExisting(true);
+          setConfig({
+            minMarketCapUsd: data.min_market_cap_usd,
+            maxMarketCapUsd: data.max_market_cap_usd,
+            minVolume24h: data.min_volume_24h,
+            minLiquidityUsd: data.min_liquidity_usd,
+            maxPairAgeHours: data.max_pair_age_hours,
+            minPriceChange1h: data.min_price_change_1h,
+            maxPriceChange1h: data.max_price_change_1h,
+            minBuySellRatio: data.min_buy_sell_ratio,
+            tradeAmountSol: data.trade_amount_sol,
+            maxOpenPositions: data.max_open_positions,
+            entryStrategy: data.entry_strategy as StrategyConfig["entryStrategy"],
+            exitStrategy: data.exit_strategy as StrategyConfig["exitStrategy"],
+            trailingStopPct: data.trailing_stop_pct,
+            maxHoldMinutes: data.max_hold_minutes,
+          });
+        }
+        setLoading(false);
+      });
+  }, [agentId]);
 
   const set = <K extends keyof StrategyConfig>(key: K, value: StrategyConfig[K]) => {
     setConfig((prev) => ({ ...prev, [key]: value }));
     setSaved(false);
   };
 
-  const handleSave = () => {
-    onSave?.(config);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+  const handleSave = async () => {
+    setSaving(true);
+    const row = {
+      agent_id: agentId,
+      entry_strategy: config.entryStrategy,
+      exit_strategy: config.exitStrategy,
+      trailing_stop_pct: config.trailingStopPct,
+      max_hold_minutes: config.maxHoldMinutes,
+      min_market_cap_usd: config.minMarketCapUsd,
+      max_market_cap_usd: config.maxMarketCapUsd,
+      min_volume_24h: config.minVolume24h,
+      min_liquidity_usd: config.minLiquidityUsd,
+      max_pair_age_hours: config.maxPairAgeHours,
+      min_price_change_1h: config.minPriceChange1h,
+      max_price_change_1h: config.maxPriceChange1h,
+      min_buy_sell_ratio: config.minBuySellRatio,
+      trade_amount_sol: config.tradeAmountSol,
+      max_open_positions: config.maxOpenPositions,
+    };
+
+    const { error } = hasExisting
+      ? await supabase.from("agent_strategy_configs" as any).update(row).eq("agent_id", agentId)
+      : await supabase.from("agent_strategy_configs" as any).insert({ ...row, user_id: (await supabase.auth.getUser()).data.user?.id });
+
+    if (!error) {
+      setHasExisting(true);
+      setSaved(true);
+      onSave?.(config);
+      setTimeout(() => setSaved(false), 2500);
+    }
+    setSaving(false);
   };
 
   const handleReset = () => {
@@ -115,10 +179,20 @@ export const StrategyBuilder = ({ takeProfitPct, stopLossPct, onSave }: Strategy
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <Settings2 className="h-4 w-4 text-primary" />
           <span className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Strategy Builder</span>
+          {!loading && (
+            <span className={`flex items-center gap-1 text-[9px] font-mono px-1.5 py-0.5 rounded border ${
+              hasExisting
+                ? "bg-primary/10 border-primary/20 text-primary"
+                : "bg-secondary border-border text-muted-foreground"
+            }`}>
+              <Database className="h-2.5 w-2.5" />
+              {hasExisting ? "Saved to DB" : "Not saved"}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -129,14 +203,15 @@ export const StrategyBuilder = ({ takeProfitPct, stopLossPct, onSave }: Strategy
           </button>
           <button
             onClick={handleSave}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-mono transition-colors ${
+            disabled={saving}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-mono transition-colors disabled:opacity-60 ${
               saved
                 ? "bg-primary/10 border border-primary/20 text-primary"
                 : "bg-primary text-primary-foreground hover:bg-primary/90"
             }`}
           >
-            {saved ? <CheckCircle2 className="h-2.5 w-2.5" /> : <Save className="h-2.5 w-2.5" />}
-            {saved ? "Saved!" : "Save Config"}
+            {saving ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : saved ? <CheckCircle2 className="h-2.5 w-2.5" /> : <Save className="h-2.5 w-2.5" />}
+            {saving ? "Saving..." : saved ? "Saved!" : "Save Config"}
           </button>
         </div>
       </div>

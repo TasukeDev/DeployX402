@@ -149,6 +149,72 @@ export type Database = {
           },
         ]
       }
+      agent_strategy_configs: {
+        Row: {
+          agent_id: string
+          created_at: string
+          entry_strategy: string
+          exit_strategy: string
+          id: string
+          max_hold_minutes: number
+          max_market_cap_usd: number
+          max_open_positions: number
+          max_pair_age_hours: number
+          max_price_change_1h: number
+          min_buy_sell_ratio: number
+          min_liquidity_usd: number
+          min_market_cap_usd: number
+          min_price_change_1h: number
+          min_volume_24h: number
+          trade_amount_sol: number
+          trailing_stop_pct: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          entry_strategy?: string
+          exit_strategy?: string
+          id?: string
+          max_hold_minutes?: number
+          max_market_cap_usd?: number
+          max_open_positions?: number
+          max_pair_age_hours?: number
+          max_price_change_1h?: number
+          min_buy_sell_ratio?: number
+          min_liquidity_usd?: number
+          min_market_cap_usd?: number
+          min_price_change_1h?: number
+          min_volume_24h?: number
+          trade_amount_sol?: number
+          trailing_stop_pct?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          entry_strategy?: string
+          exit_strategy?: string
+          id?: string
+          max_hold_minutes?: number
+          max_market_cap_usd?: number
+          max_open_positions?: number
+          max_pair_age_hours?: number
+          max_price_change_1h?: number
+          min_buy_sell_ratio?: number
+          min_liquidity_usd?: number
+          min_market_cap_usd?: number
+          min_price_change_1h?: number
+          min_volume_24h?: number
+          trade_amount_sol?: number
+          trailing_stop_pct?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       agent_wallets: {
         Row: {
           agent_id: string
