@@ -74,6 +74,7 @@ const AgentDetail = () => {
   const [snapshots, setSnapshots] = useState<PnlSnapshot[]>([]);
   const [wallet, setWallet] = useState<AgentWallet | null>(null);
   const [walletLoading, setWalletLoading] = useState(false);
+  const [justGenerated, setJustGenerated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [copying, setCopying] = useState(false);
   const [liveIndicator, setLiveIndicator] = useState(false);
@@ -437,6 +438,7 @@ const AgentDetail = () => {
       const { data, error } = await supabase.functions.invoke("generate-wallet", { body: { agent_id: id } });
       if (error) throw error;
       setWallet({ public_key: data.public_key, balance_sol: 0 });
+      if (!data.already_exists) setJustGenerated(true);
       toast({ title: data.already_exists ? "Wallet loaded" : "Wallet generated!", description: `Address: ${data.public_key.slice(0, 8)}...` });
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
@@ -1438,8 +1440,51 @@ const AgentDetail = () => {
               </div>
             </div>
 
+            {/* Step tracker */}
+            <div className="flex items-center gap-0">
+              {[
+                { label: "Generate Wallet", done: !!wallet, active: !wallet },
+                { label: "Fund with SOL", done: !!wallet && wallet.balance_sol >= 0.005, active: !!wallet && wallet.balance_sol < 0.005 },
+                { label: "Start Trading", done: agent?.status === "running", active: !!wallet && wallet.balance_sol >= 0.005 && agent?.status !== "running" },
+              ].map((step, i) => (
+                <div key={i} className="flex items-center flex-1 min-w-0">
+                  <div className="flex flex-col items-center gap-1 min-w-0 flex-1">
+                    <div className={`h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-mono font-bold border-2 transition-all ${
+                      step.done ? "bg-primary border-primary text-primary-foreground" :
+                      step.active ? "border-primary text-primary bg-primary/10 animate-pulse" :
+                      "border-border text-muted-foreground bg-secondary/30"
+                    }`}>
+                      {step.done ? "✓" : i + 1}
+                    </div>
+                    <span className={`text-[9px] font-mono text-center leading-tight ${step.done ? "text-primary" : step.active ? "text-foreground" : "text-muted-foreground"}`}>
+                      {step.label}
+                    </span>
+                  </div>
+                  {i < 2 && (
+                    <div className={`h-px flex-1 mx-1 mb-4 transition-all ${step.done ? "bg-primary" : "bg-border"}`} />
+                  )}
+                </div>
+              ))}
+            </div>
+
             {wallet ? (
               <div className="space-y-4">
+                {/* Just-generated banner */}
+                {justGenerated && wallet.balance_sol < 0.005 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="rounded-lg bg-primary/10 border border-primary/30 p-4 space-y-2"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-primary text-sm">🎉</span>
+                      <p className="text-xs font-mono font-semibold text-primary">Wallet generated! Now fund it to start trading.</p>
+                    </div>
+                    <p className="text-[10px] font-mono text-muted-foreground">
+                      Send at least <span className="text-primary font-bold">0.005 SOL</span> to the address below. Your agent will automatically begin trading once funded and started.
+                    </p>
+                  </motion.div>
+                )}
                 <div className="rounded-lg bg-secondary/50 border border-border p-4">
                   <p className="text-[10px] font-mono text-muted-foreground uppercase mb-1">Deposit Address</p>
                   <div className="flex items-center gap-2">
@@ -1662,26 +1707,54 @@ const AgentDetail = () => {
                   )}
                 </div>
 
+                {/* Start Trading CTA — shown when funded but not running */}
+                {wallet.balance_sol >= 0.005 && agent?.status !== "running" && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.97 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="rounded-lg border border-primary/40 bg-primary/10 p-4 flex items-center justify-between gap-4"
+                  >
+                    <div>
+                      <p className="text-xs font-mono font-semibold text-primary">Ready to trade!</p>
+                      <p className="text-[10px] font-mono text-muted-foreground mt-0.5">
+                        Your wallet has {wallet.balance_sol.toFixed(4)} SOL. Start the agent to begin trading.
+                      </p>
+                    </div>
+                    <button
+                      onClick={toggleStatus}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-mono font-medium hover:bg-primary/90 transition-colors shrink-0"
+                    >
+                      <Play className="h-3 w-3" /> Start Trading
+                    </button>
+                  </motion.div>
+                )}
+
                 <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
                   <p className="text-xs font-mono text-primary font-medium mb-1">How to fund your agent</p>
                   <ol className="text-[10px] font-mono text-muted-foreground space-y-1 list-decimal list-inside">
                     <li>Copy the deposit address above</li>
-                    <li>Send SOL from your wallet (Phantom, Solflare, etc.)</li>
-                    <li>Start the agent — it will begin trading automatically</li>
+                    <li>Send at least <span className="text-foreground font-medium">0.005 SOL</span> from Phantom, Solflare, or any Solana wallet</li>
+                    <li>Hit <span className="text-primary font-medium">Start Trading</span> — the agent will begin scanning and executing trades automatically</li>
                   </ol>
                 </div>
               </div>
             ) : (
-              <div className="text-center py-8">
-                <Wallet className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
-                <p className="text-sm font-mono text-muted-foreground mb-4">No wallet generated yet</p>
+              <div className="text-center py-10 space-y-4">
+                <div className="h-14 w-14 rounded-2xl border border-border bg-secondary/50 flex items-center justify-center mx-auto">
+                  <Wallet className="h-7 w-7 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-sm font-mono font-medium mb-1">No wallet yet</p>
+                  <p className="text-[11px] font-mono text-muted-foreground">Generate a dedicated Solana wallet for this agent to enable on-chain trading.</p>
+                </div>
                 <button
                   onClick={generateWallet}
                   disabled={walletLoading}
-                  className="px-6 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-mono hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-mono hover:bg-primary/90 transition-colors disabled:opacity-50"
                 >
-                  {walletLoading ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Generate Wallet"}
+                  {walletLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating...</> : <><Wallet className="h-4 w-4" /> Generate Wallet</>}
                 </button>
+                <p className="text-[9px] font-mono text-muted-foreground">A unique Solana keypair will be created and secured for this agent</p>
               </div>
             )}
           </motion.div>
