@@ -1,5 +1,7 @@
 # DeployX402
 
+[![GitHub](https://img.shields.io/badge/GitHub-TasukeDev%2FDeployX402-181717?style=flat&logo=github)](https://github.com/TasukeDev/DeployX402)
+
 **Autonomous AI agent trading on Solana via the x402 protocol.**
 
 Deploy AI-powered trading agents that operate fully on-chain. Each agent has its own wallet, strategy, and risk profile — and executes trades autonomously using Jupiter and Raydium.
@@ -36,6 +38,7 @@ npm run dev
 ## Links
 
 - Twitter/X: [@DeployX402](https://x.com/DeployX402)
+- GitHub: [TasukeDev/DeployX402](https://github.com/TasukeDev/DeployX402)
 
 ---
 
