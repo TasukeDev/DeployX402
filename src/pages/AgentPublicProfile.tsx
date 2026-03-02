@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
 import {
   TrendingUp, TrendingDown, Trophy, ArrowLeft, Copy, Zap,
-  BarChart3, Share2, Loader2, ExternalLink,
+  BarChart3, Share2, Loader2, ExternalLink, Link,
 } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
@@ -72,6 +72,8 @@ const AgentPublicProfile = () => {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [copying, setCopying] = useState(false);
+  const [rank, setRank] = useState<number | null>(null);
+  const [copyingLink, setCopyingLink] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -110,6 +112,27 @@ const AgentPublicProfile = () => {
       setSnapshots(snaps);
       setLatestSnap(latest);
       setRecentTrades(tradeRes.data ?? []);
+
+      // Compute rank among all public agents by latest PnL
+      if (latest) {
+        const { data: allSnaps } = await supabase
+          .from("pnl_snapshots")
+          .select("agent_id, pnl_sol, snapshot_at")
+          .order("snapshot_at", { ascending: false });
+
+        if (allSnaps) {
+          // Keep only the most recent snapshot per agent
+          const latestByAgent = new Map<string, number>();
+          for (const s of allSnaps) {
+            if (!latestByAgent.has(s.agent_id)) latestByAgent.set(s.agent_id, s.pnl_sol);
+          }
+          // Sort descending by pnl
+          const sorted = [...latestByAgent.entries()].sort((a, b) => b[1] - a[1]);
+          const position = sorted.findIndex(([aid]) => aid === id);
+          if (position !== -1) setRank(position + 1);
+        }
+      }
+
       setLoading(false);
 
       // Inject dynamic OG meta tags
@@ -196,6 +219,13 @@ const AgentPublicProfile = () => {
     }
   };
 
+  const handleCopyLink = async () => {
+    setCopyingLink(true);
+    await navigator.clipboard.writeText(window.location.href);
+    toast({ title: "Link copied!", description: "Share this URL anywhere." });
+    setCopyingLink(false);
+  };
+
   const handleShare = () => {
     if (!agent || !latestSnap) return;
     const url = window.location.href;
@@ -253,6 +283,13 @@ const AgentPublicProfile = () => {
           </div>
           <div className="flex items-center gap-2">
             <button
+              onClick={handleCopyLink}
+              disabled={copyingLink}
+              className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground hover:text-foreground border border-border/50 px-3 py-1.5 hover:border-border transition-all disabled:opacity-50"
+            >
+              {copyingLink ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Link className="h-2.5 w-2.5" />} Copy Link
+            </button>
+            <button
               onClick={handleShare}
               className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground hover:text-foreground border border-border/50 px-3 py-1.5 hover:border-border transition-all"
             >
@@ -286,6 +323,23 @@ const AgentPublicProfile = () => {
           </div>
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-3xl sm:text-4xl font-mono font-bold text-foreground">{agent.name}</h1>
+            {rank !== null && (
+              <motion.span
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.35, type: "spring", stiffness: 300 }}
+                className={`flex items-center gap-1 text-[10px] font-mono font-bold uppercase tracking-widest px-2 py-1 rounded-sm border ${
+                  rank === 1
+                    ? "text-yellow-400 bg-yellow-400/10 border-yellow-400/30"
+                    : rank <= 3
+                    ? "text-orange-400 bg-orange-400/10 border-orange-400/30"
+                    : "text-muted-foreground bg-muted/50 border-border/50"
+                }`}
+              >
+                <Trophy className="h-2.5 w-2.5" />
+                #{rank} Ranked
+              </motion.span>
+            )}
             {pnlPositive && latestSnap && (
               <motion.span
                 initial={{ opacity: 0, scale: 0.8 }}
