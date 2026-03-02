@@ -89,12 +89,24 @@ serve(async (req) => {
       });
     }
 
-    // Verify agent belongs to user
+    // First verify the agent belongs to the user (or is public and user is authenticated)
+    const { data: agent } = await supabase
+      .from("agents")
+      .select("id, user_id, is_public")
+      .eq("id", agent_id)
+      .single();
+
+    if (!agent || (agent.user_id !== user.id && !agent.is_public)) {
+      return new Response(JSON.stringify({ error: "Agent not found" }), {
+        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Look up wallet by agent_id only (ownership already verified above)
     const { data: wallet } = await supabase
       .from("agent_wallets")
       .select("public_key")
       .eq("agent_id", agent_id)
-      .eq("user_id", user.id)
       .single();
 
     if (!wallet) {
