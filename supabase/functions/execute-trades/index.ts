@@ -613,7 +613,9 @@ serve(async (req) => {
           tx_signature: onChainSig,
         });
 
-        await updatePnlSnapshot(supabase, agent.id, agent.user_id, -0.0001, false);
+        // PnL snapshot: track the SOL spent on the buy as unrealized cost
+        // The real PnL will be booked when the position is sold (TP/SL)
+        // We do NOT insert a negative snapshot here - only insert on sells
 
         results.push({ agent: agent.name, action: "buy", category: agent.category, token: token.symbol, amount: tradeAmountSol, signal, tx: onChainSig });
         console.log(`Buy tx confirmed: ${onChainSig}`);
