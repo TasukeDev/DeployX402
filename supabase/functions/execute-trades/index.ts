@@ -34,18 +34,133 @@ function encodeBase58(bytes: Uint8Array): string {
   return result.reverse().map((i) => BASE58_ALPHABET[i]).join("");
 }
 
-// Well-known high-liquidity Solana tokens always routable on Jupiter (verified mint addresses)
-const FALLBACK_TOKENS = [
-  { symbol: "BONK", address: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263", priceUsd: 0.00002, volume24h: 5000000, priceChange24h: 0 },
-  { symbol: "WIF",  address: "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm", priceUsd: 1.5,     volume24h: 8000000, priceChange24h: 0 },
-  { symbol: "JUP",  address: "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",  priceUsd: 0.8,     volume24h: 3000000, priceChange24h: 0 },
-  { symbol: "PYTH", address: "HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3", priceUsd: 0.3,     volume24h: 2000000, priceChange24h: 0 },
-  { symbol: "RAY",  address: "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R", priceUsd: 2.0,     volume24h: 4000000, priceChange24h: 0 },
-  { symbol: "USDC", address: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", priceUsd: 1.0,     volume24h: 50000000, priceChange24h: 0 },
+interface TokenCandidate {
+  symbol: string;
+  address: string;
+  priceUsd: number;
+  volume24h: number;
+  priceChange24h: number;
+  priceChange1h: number;
+  liquidity: number;
+  buys24h: number;
+  sells24h: number;
+  pairCreatedAt: number;
+  marketCap: number;
+  signal?: string;
+}
+
+// Well-known high-liquidity fallback tokens
+const FALLBACK_TOKENS: TokenCandidate[] = [
+  { symbol: "BONK", address: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263", priceUsd: 0.00002, volume24h: 5000000, priceChange24h: 0, priceChange1h: 0, liquidity: 500000, buys24h: 500, sells24h: 300, pairCreatedAt: Date.now() - 86400000 * 30, marketCap: 1000000 },
+  { symbol: "WIF",  address: "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm", priceUsd: 1.5, volume24h: 8000000, priceChange24h: 0, priceChange1h: 0, liquidity: 1000000, buys24h: 700, sells24h: 400, pairCreatedAt: Date.now() - 86400000 * 20, marketCap: 1500000000 },
+  { symbol: "JUP",  address: "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",  priceUsd: 0.8, volume24h: 3000000, priceChange24h: 0, priceChange1h: 0, liquidity: 800000, buys24h: 400, sells24h: 250, pairCreatedAt: Date.now() - 86400000 * 60, marketCap: 1200000000 },
+  { symbol: "RAY",  address: "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R", priceUsd: 2.0, volume24h: 4000000, priceChange24h: 0, priceChange1h: 0, liquidity: 600000, buys24h: 350, sells24h: 200, pairCreatedAt: Date.now() - 86400000 * 90, marketCap: 600000000 },
 ];
 
-// Fetch trending Solana tokens from DexScreener, verified routable on Jupiter
-async function getTrendingTokens(): Promise<Array<{ symbol: string; address: string; priceUsd: number; volume24h: number; priceChange24h: number }>> {
+// ── Composite momentum score used by scalper & momentum categories ────────────
+function scoreToken(t: TokenCandidate): number {
+  let score = 0;
+
+  // 1h price change (strongest signal)
+  if (t.priceChange1h > 30) score += 40;
+  else if (t.priceChange1h > 15) score += 28;
+  else if (t.priceChange1h > 5)  score += 16;
+  else if (t.priceChange1h < -10) score -= 20;
+
+  // Volume (liquidity confidence)
+  if (t.volume24h > 2000000) score += 20;
+  else if (t.volume24h > 500000) score += 14;
+  else if (t.volume24h > 100000) score += 8;
+
+  // Buy pressure
+  const totalTxns = t.buys24h + t.sells24h;
+  if (totalTxns > 0) {
+    const buyRatio = t.buys24h / totalTxns;
+    if (buyRatio > 0.65) score += 20;
+    else if (buyRatio > 0.55) score += 10;
+    else if (buyRatio < 0.35) score -= 10;
+  }
+
+  // Liquidity safety
+  if (t.liquidity > 200000) score += 10;
+  else if (t.liquidity > 50000) score += 5;
+  else if (t.liquidity < 10000) score -= 15;
+
+  // Pair age (newer = riskier but more volatile)
+  const ageHours = (Date.now() - t.pairCreatedAt) / 3600000;
+  if (ageHours < 2)   score += 5;   // very new
+  else if (ageHours < 12) score += 10; // fresh momentum
+
+  return score;
+}
+
+// ── Fetch a WIDE set of DexScreener tokens for multi-coin scanning ────────────
+async function getScalperTokens(): Promise<TokenCandidate[]> {
+  try {
+    // Step 1: get top boosted token addresses on Solana
+    const boostRes = await fetch("https://api.dexscreener.com/token-boosts/top/v1", {
+      signal: AbortSignal.timeout(7000),
+    });
+    if (!boostRes.ok) throw new Error("boost fetch failed");
+    const boostData = await boostRes.json() as Array<{ tokenAddress: string; chainId: string }>;
+
+    const addresses = boostData
+      .filter((d) => d.chainId === "solana")
+      .slice(0, 20)
+      .map((d) => d.tokenAddress);
+
+    if (addresses.length === 0) throw new Error("no addresses");
+
+    // Step 2: fetch live pair data for those addresses
+    const pairsRes = await fetch(
+      `https://api.dexscreener.com/tokens/v1/solana/${addresses.join(",")}`,
+      { signal: AbortSignal.timeout(8000) }
+    );
+    if (!pairsRes.ok) throw new Error("pairs fetch failed");
+    const pairsData = await pairsRes.json();
+    const pairs = Array.isArray(pairsData) ? pairsData : (pairsData.pairs ?? []);
+
+    // Dedupe by base token address — keep highest volume pair per token
+    const seen = new Map<string, TokenCandidate>();
+    for (const p of pairs) {
+      if (!p?.baseToken?.address || p.chainId !== "solana") continue;
+      if (p.baseToken.address === SOL_MINT || p.baseToken.address === USDC_MINT) continue;
+      const priceUsd = parseFloat(p.priceUsd || "0");
+      if (priceUsd <= 0) continue;
+
+      const candidate: TokenCandidate = {
+        symbol: p.baseToken.symbol,
+        address: p.baseToken.address,
+        priceUsd,
+        volume24h: parseFloat(p.volume?.h24 || "0"),
+        priceChange24h: parseFloat(p.priceChange?.h24 || "0"),
+        priceChange1h: parseFloat(p.priceChange?.h1 || "0"),
+        liquidity: parseFloat(p.liquidity?.usd || "0"),
+        buys24h: p.txns?.h24?.buys ?? 0,
+        sells24h: p.txns?.h24?.sells ?? 0,
+        pairCreatedAt: p.pairCreatedAt ?? (Date.now() - 86400000),
+        marketCap: parseFloat(p.marketCap || p.fdv || "0"),
+      };
+
+      const existing = seen.get(p.baseToken.address);
+      if (!existing || candidate.volume24h > existing.volume24h) {
+        seen.set(p.baseToken.address, candidate);
+      }
+    }
+
+    const tokens = [...seen.values()].filter(
+      (t) => t.volume24h > 10000 && t.liquidity > 5000
+    );
+    console.log(`Scalper scanner: ${tokens.length} tokens fetched from DexScreener`);
+    return tokens.length > 0 ? tokens : FALLBACK_TOKENS;
+  } catch (e) {
+    console.error("getScalperTokens error:", e);
+    return FALLBACK_TOKENS;
+  }
+}
+
+// ── Fetch curated high-liquidity tokens (used for momentum / general) ─────────
+async function getTrendingTokens(): Promise<TokenCandidate[]> {
   try {
     const res = await fetch(
       "https://api.dexscreener.com/latest/dex/tokens/DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263,EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm,JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN,HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3,4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
@@ -55,7 +170,7 @@ async function getTrendingTokens(): Promise<Array<{ symbol: string; address: str
     const data = await res.json();
     const pairs = data.pairs || [];
     const seen = new Set<string>();
-    const tokens = pairs
+    const tokens: TokenCandidate[] = pairs
       .filter((p: any) =>
         p.chainId === "solana" &&
         p.baseToken?.address &&
@@ -72,6 +187,12 @@ async function getTrendingTokens(): Promise<Array<{ symbol: string; address: str
         priceUsd: parseFloat(p.priceUsd || "0"),
         volume24h: parseFloat(p.volume?.h24 || "0"),
         priceChange24h: parseFloat(p.priceChange?.h24 || "0"),
+        priceChange1h: parseFloat(p.priceChange?.h1 || "0"),
+        liquidity: parseFloat(p.liquidity?.usd || "0"),
+        buys24h: p.txns?.h24?.buys ?? 0,
+        sells24h: p.txns?.h24?.sells ?? 0,
+        pairCreatedAt: p.pairCreatedAt ?? (Date.now() - 86400000 * 7),
+        marketCap: parseFloat(p.marketCap || p.fdv || "0"),
       }));
     return tokens.length > 0 ? tokens : FALLBACK_TOKENS;
   } catch {
@@ -79,7 +200,7 @@ async function getTrendingTokens(): Promise<Array<{ symbol: string; address: str
   }
 }
 
-// Get current token price from DexScreener
+// ── Token price lookup ────────────────────────────────────────────────────────
 async function getTokenPrice(tokenAddress: string): Promise<number | null> {
   try {
     const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${tokenAddress}`);
@@ -89,6 +210,66 @@ async function getTokenPrice(tokenAddress: string): Promise<number | null> {
     return pair ? parseFloat(pair.priceUsd || "0") : null;
   } catch {
     return null;
+  }
+}
+
+// ── Category-aware token selection ───────────────────────────────────────────
+interface PickResult { token: TokenCandidate; signal: string }
+
+function pickToken(tokens: TokenCandidate[], category: string): PickResult {
+  if (tokens.length === 0) throw new Error("No tokens available");
+
+  switch (category) {
+    case "scalper": {
+      // Score all tokens, pick the highest composite score
+      const scored = tokens
+        .map((t) => ({ token: t, score: scoreToken(t) }))
+        .sort((a, b) => b.score - a.score);
+      const best = scored[0];
+      const t = best.token;
+      // Build a human-readable signal
+      const buyRatio = t.buys24h + t.sells24h > 0
+        ? ((t.buys24h / (t.buys24h + t.sells24h)) * 100).toFixed(0)
+        : "?";
+      const ageH = ((Date.now() - t.pairCreatedAt) / 3600000).toFixed(0);
+      return {
+        token: t,
+        signal: `Scalper: ${t.priceChange1h > 0 ? "+" : ""}${t.priceChange1h.toFixed(1)}% 1h · ${buyRatio}% buys · vol $${(t.volume24h / 1000).toFixed(0)}K · ${ageH}h old · score ${best.score}`,
+      };
+    }
+
+    case "momentum": {
+      // Pick the token with highest 1h price change (positive momentum)
+      const sorted = [...tokens].sort((a, b) => b.priceChange1h - a.priceChange1h);
+      const t = sorted[0];
+      return {
+        token: t,
+        signal: `Momentum: +${t.priceChange1h.toFixed(1)}% 1h · 24h vol $${(t.volume24h / 1000).toFixed(0)}K · 24h ${t.priceChange24h >= 0 ? "+" : ""}${t.priceChange24h.toFixed(1)}%`,
+      };
+    }
+
+    case "sniper": {
+      // Target freshest pairs (< 24h) with decent buy pressure
+      const newPairs = tokens.filter((t) => {
+        const ageH = (Date.now() - t.pairCreatedAt) / 3600000;
+        return ageH < 24 && t.buys24h > t.sells24h;
+      });
+      const pool = newPairs.length > 0 ? newPairs : tokens.slice(0, 5);
+      const t = pool[Math.floor(Math.random() * pool.length)];
+      const ageH = ((Date.now() - t.pairCreatedAt) / 3600000).toFixed(1);
+      return {
+        token: t,
+        signal: `Sniper: new pair ${ageH}h · liq $${(t.liquidity / 1000).toFixed(0)}K · buys ${t.buys24h} vs sells ${t.sells24h}`,
+      };
+    }
+
+    default: {
+      const t = tokens[Math.floor(Math.random() * Math.min(tokens.length, 10))];
+      return {
+        token: t,
+        signal: `DexScreener vol: $${(t.volume24h / 1000).toFixed(0)}k · 24h: ${t.priceChange24h >= 0 ? "+" : ""}${t.priceChange24h.toFixed(1)}%`,
+      };
+    }
   }
 }
 
@@ -177,19 +358,6 @@ async function getSolBalance(publicKey: string): Promise<number> {
   return (data.result?.value || 0) / 1e9;
 }
 
-function pickToken(
-  tokens: Array<{ symbol: string; address: string; priceUsd: number; volume24h: number; priceChange24h: number }>,
-  category: string
-) {
-  if (tokens.length === 0) throw new Error("No tokens available");
-  switch (category) {
-    case "momentum": return tokens.sort((a, b) => b.priceChange24h - a.priceChange24h)[0];
-    case "scalper": return tokens.sort((a, b) => b.volume24h - a.volume24h)[0];
-    case "sniper": return tokens.slice(0, 5)[Math.floor(Math.random() * 5)];
-    default: return tokens[Math.floor(Math.random() * Math.min(tokens.length, 10))];
-  }
-}
-
 async function updatePnlSnapshot(
   supabase: any,
   agentId: string,
@@ -229,7 +397,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch running agents with per-agent TP/SL targets
+    // Fetch running agents
     const { data: runningAgents, error: agentsError } = await supabase
       .from("agents")
       .select("id, user_id, category, name, take_profit_pct, stop_loss_pct")
@@ -254,18 +422,25 @@ serve(async (req) => {
       configByAgent[cfg.agent_id] = cfg;
     }
 
-    // Fetch trending tokens once — throw if unavailable (real data only)
-    const trendingTokens = await getTrendingTokens();
-    console.log(`Got ${trendingTokens.length} trending tokens from DexScreener`);
+    // Determine which categories are active so we only fetch what we need
+    const categories = new Set(runningAgents.map((a: any) => a.category));
+
+    // Fetch token pools — scalper gets wide scan, others get curated list
+    const [scalperTokens, trendingTokens] = await Promise.all([
+      categories.has("scalper") ? getScalperTokens() : Promise.resolve(FALLBACK_TOKENS),
+      (categories.has("momentum") || categories.has("sniper") || categories.has("general"))
+        ? getTrendingTokens()
+        : Promise.resolve(FALLBACK_TOKENS),
+    ]);
+
+    console.log(`Scalper pool: ${scalperTokens.length} tokens | Trending pool: ${trendingTokens.length} tokens`);
 
     const results = [];
 
     for (const agent of runningAgents) {
       try {
-        // Per-agent risk management targets
         const TAKE_PROFIT_PCT = agent.take_profit_pct ?? 0.05;
         const STOP_LOSS_PCT   = -(agent.stop_loss_pct ?? 0.03);
-        // Load saved strategy config (if any)
         const cfg = configByAgent[agent.id] ?? null;
 
         // ── Step 1: Check open positions for TP/SL ──────────────────────────
@@ -292,20 +467,15 @@ serve(async (req) => {
             .eq("agent_id", agent.id)
             .single();
 
-          if (!wallet) {
-            console.log(`No wallet for agent ${agent.id} — skipping sell`);
-            continue;
-          }
+          if (!wallet) { console.log(`No wallet for agent ${agent.id}`); continue; }
 
-          // Real on-chain sell: token → SOL via Jupiter
           const tokenAmountRaw = Math.floor(pos.token_amount * 1e6);
           const sellQuote = await getJupiterQuote(pos.token_address, SOL_MINT, tokenAmountRaw);
           const sellSwapTx = await getJupiterSwapTx(sellQuote, wallet.public_key);
           const signedSellTx = await signTransaction(sellSwapTx, wallet.encrypted_private_key);
-          const sellTxSig = await sendTransaction(signedSellTx);
+          await sendTransaction(signedSellTx);
           const onChainSellSig = await extractTxSignature(signedSellTx);
 
-          // PnL in SOL: actual SOL received from sell minus SOL spent on buy
           const solReceived = parseInt(sellQuote.outAmount || "0") / 1e9;
           const realizedPnl = solReceived - pos.entry_amount_sol;
           const newBalance = await getSolBalance(wallet.public_key);
@@ -340,7 +510,7 @@ serve(async (req) => {
 
         // ── Step 2: Maybe open a new BUY position ────────────────────────────
         const maxPositions = cfg?.max_open_positions ?? 3;
-        const openCount = (openPositions || []).filter(p => p.status === "open").length;
+        const openCount = (openPositions || []).filter((p: any) => p.status === "open").length;
         if (openCount >= maxPositions) {
           results.push({ agent: agent.name, action: "skip", reason: "max_positions" });
           continue;
@@ -361,7 +531,6 @@ serve(async (req) => {
           continue;
         }
 
-        // Always fetch live on-chain balance
         const currentBalance = await getSolBalance(wallet.public_key);
         await supabase.from("agent_wallets").update({ balance_sol: currentBalance }).eq("agent_id", agent.id);
 
@@ -371,24 +540,28 @@ serve(async (req) => {
           continue;
         }
 
-        // Apply strategy config filters to token list
-        let eligibleTokens = trendingTokens;
+        // Select token pool by category
+        const isScalper = agent.category === "scalper";
+        let eligibleTokens = isScalper ? scalperTokens : trendingTokens;
+
+        // Apply strategy config filters
         if (cfg) {
-          eligibleTokens = trendingTokens.filter((t) => {
+          const filtered = eligibleTokens.filter((t) => {
             if (t.volume24h < (cfg.min_volume_24h ?? 0)) return false;
-            if (t.priceChange24h < (cfg.min_price_change_1h ?? 0)) return false;
+            if (t.priceChange1h < (cfg.min_price_change_1h ?? 0)) return false;
             return true;
           });
-          if (eligibleTokens.length === 0) {
-            console.log(`Agent ${agent.name}: no tokens passed strategy filters, using all tokens`);
-            eligibleTokens = trendingTokens;
+          if (filtered.length > 0) {
+            eligibleTokens = filtered;
+            console.log(`Agent ${agent.name}: strategy filter kept ${filtered.length}/${(isScalper ? scalperTokens : trendingTokens).length} tokens`);
+          } else {
+            console.log(`Agent ${agent.name}: no tokens passed strategy filters, using all`);
           }
-          console.log(`Agent ${agent.name}: strategy filter kept ${eligibleTokens.length}/${trendingTokens.length} tokens`);
         }
 
-        const token = pickToken(eligibleTokens, cfg?.entry_strategy ?? agent.category);
+        const entryStrategy = cfg?.entry_strategy ?? agent.category;
+        const { token, signal } = pickToken(eligibleTokens, entryStrategy);
 
-        // Use configured trade amount or fallback to 5-15% of balance, capped at 0.05 SOL
         const configuredAmount = cfg?.trade_amount_sol ?? null;
         const tradeAmountSol = configuredAmount
           ? Math.min(configuredAmount, currentBalance - 0.001)
@@ -400,15 +573,11 @@ serve(async (req) => {
           continue;
         }
 
-        console.log(`Agent ${agent.name}: BUY ${token.symbol} for ${tradeAmountSol.toFixed(4)} SOL`);
+        console.log(`Agent ${agent.name} [${agent.category}]: BUY ${token.symbol} for ${tradeAmountSol.toFixed(4)} SOL | ${signal}`);
 
-        // Real on-chain buy: SOL → token via Jupiter
         const quote = await getJupiterQuote(SOL_MINT, token.address, tradeAmountLamports);
         const outAmount = parseInt(quote.outAmount || "0");
         if (outAmount <= 0) throw new Error(`Jupiter returned 0 outAmount for ${token.symbol}`);
-
-        // Store entry_price in USD (from DexScreener) so TP/SL comparison uses same unit
-        const entryPriceUsd = token.priceUsd;
 
         const swapTxBase64 = await getJupiterSwapTx(quote, wallet.public_key);
         const signedTxBase64 = await signTransaction(swapTxBase64, wallet.encrypted_private_key);
@@ -423,7 +592,7 @@ serve(async (req) => {
           user_id: agent.user_id,
           token_symbol: token.symbol,
           token_address: token.address,
-          entry_price: entryPriceUsd,
+          entry_price: token.priceUsd,
           entry_amount_sol: tradeAmountSol,
           token_amount: outAmount / 1e6,
           buy_tx_signature: onChainSig,
@@ -438,20 +607,18 @@ serve(async (req) => {
           action: "buy",
           amount_sol: tradeAmountSol,
           token_amount: outAmount / 1e6,
-          price: entryPriceUsd,
+          price: token.priceUsd,
           pnl_sol: 0,
-          signal: `DexScreener vol: $${(token.volume24h / 1000).toFixed(0)}k · 24h: ${token.priceChange24h > 0 ? "+" : ""}${token.priceChange24h.toFixed(1)}%`,
+          signal,
           tx_signature: onChainSig,
         });
 
-        // Small fee deduction in PnL snapshot for buy (gas cost estimate)
         await updatePnlSnapshot(supabase, agent.id, agent.user_id, -0.0001, false);
 
-        results.push({ agent: agent.name, action: "buy", token: token.symbol, amount: tradeAmountSol, tx: onChainSig });
+        results.push({ agent: agent.name, action: "buy", category: agent.category, token: token.symbol, amount: tradeAmountSol, signal, tx: onChainSig });
         console.log(`Buy tx confirmed: ${onChainSig}`);
 
       } catch (agentError) {
-        // Log real errors — do NOT insert fake/simulated trades
         console.error(`Error for agent ${agent.id} (${agent.name}):`, agentError);
         results.push({ agent: agent.name, status: "error", error: String(agentError) });
       }
