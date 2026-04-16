@@ -147,7 +147,7 @@ const LiveStatsBar = () => {
 
         {/* Right tag */}
         <span className="text-[9px] font-mono text-muted-foreground shrink-0 hidden sm:block">
-          deployx402 · solana
+          autox402 · solana
         </span>
       </div>
     </div>

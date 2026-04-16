@@ -110,8 +110,8 @@ const Leaderboard = () => {
   const handleShareAgent = (agent: LeaderboardAgent) => {
     const pnlText = `${agent.pnl_sol >= 0 ? "+" : ""}${agent.pnl_sol.toFixed(2)} SOL`;
     const winText = `${agent.win_rate.toFixed(0)}% win rate`;
-    const text = `🤖 ${agent.name} is crushing it on @DeployX402\n\n📈 PnL: ${pnlText}\n🎯 ${winText} across ${agent.total_trades} trades\n\nDeploy your own autonomous AI trading agent on Solana 👇`;
-    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent("https://deployx402.lovable.app")}`;
+    const text = `🤖 ${agent.name} is crushing it on @AutoX402\n\n📈 PnL: ${pnlText}\n🎯 ${winText} across ${agent.total_trades} trades\n\nDeploy your own autonomous AI trading agent on Solana 👇`;
+    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent("https://autox402.lovable.app")}`;
     window.open(url, "_blank", "noopener,noreferrer");
   };
 
@@ -159,7 +159,7 @@ const Leaderboard = () => {
             </button>
             <div className="flex items-center gap-2">
               <span className="text-primary font-mono text-[10px]">◆</span>
-              <span className="text-xs font-mono font-medium">DeployX402</span>
+              <span className="text-xs font-mono font-medium">AutoX402</span>
               <span className="text-[10px] text-muted-foreground font-mono">/ leaderboard</span>
             </div>
           </div>

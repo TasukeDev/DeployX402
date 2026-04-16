@@ -61,7 +61,7 @@ const WhatIsSection = () => {
           </motion.div>
 
           <motion.p variants={itemVariants} className="text-sm sm:text-base text-muted-foreground leading-relaxed max-w-xl">
-            DeployX402 creates autonomous AI trading agents on Solana. Each agent has its own 
+            AutoX402 creates autonomous AI trading agents on Solana. Each agent has its own 
             trading strategy, risk profile, and wallet. Connect your wallet, fund an agent, and let it trade for you. Completely free.
           </motion.p>
 

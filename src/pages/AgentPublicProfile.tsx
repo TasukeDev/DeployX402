@@ -46,7 +46,7 @@ function setMeta(property: string, content: string) {
 }
 
 function restoreDefaultMeta() {
-  const defaultTitle = "DeployX402 — Autonomous AI Trading on Solana";
+  const defaultTitle = "AutoX402 — Autonomous AI Trading on Solana";
   const defaultDesc = "Deploy autonomous AI trading agents on Solana. Snipe, trade, and manage memecoins fully on-chain. No infrastructure needed.";
   document.title = defaultTitle;
   setMeta("og:title", defaultTitle);
@@ -165,8 +165,8 @@ const AgentPublicProfile = () => {
         const pnlSign = latest.pnl_sol >= 0 ? "+" : "";
         const pnlText = `${pnlSign}${latest.pnl_sol.toFixed(3)} SOL`;
         const winText = `${latest.win_rate?.toFixed(0) ?? "?"}% win rate`;
-        const title = `${agentData.name} — ${pnlText} | DeployX402`;
-        const desc = `AI trading agent on Solana · ${pnlText} PnL · ${winText} over ${latest.total_trades} trades. Copy-trade this agent on DeployX402.`;
+        const title = `${agentData.name} — ${pnlText} | AutoX402`;
+        const desc = `AI trading agent on Solana · ${pnlText} PnL · ${winText} over ${latest.total_trades} trades. Copy-trade this agent on AutoX402.`;
         const url = window.location.href;
 
         document.title = title;
@@ -255,7 +255,7 @@ const AgentPublicProfile = () => {
     if (!agent || !latestSnap) return;
     const url = window.location.href;
     const pnlText = `${latestSnap.pnl_sol >= 0 ? "+" : ""}${latestSnap.pnl_sol.toFixed(3)} SOL`;
-    const text = `🤖 Check out "${agent.name}" on @DeployX402\n\n📈 PnL: ${pnlText}\n🎯 Win Rate: ${latestSnap.win_rate.toFixed(0)}% — ${latestSnap.total_trades} trades\n\nAutonomous AI trading on Solana 👇`;
+    const text = `🤖 Check out "${agent.name}" on @AutoX402\n\n📈 PnL: ${pnlText}\n🎯 Win Rate: ${latestSnap.win_rate.toFixed(0)}% — ${latestSnap.total_trades} trades\n\nAutonomous AI trading on Solana 👇`;
     window.open(
       `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`,
       "_blank",
@@ -303,7 +303,7 @@ const AgentPublicProfile = () => {
               <ArrowLeft className="h-3.5 w-3.5" />
             </button>
             <span className="text-primary font-mono text-[10px]">◆</span>
-            <span className="text-xs font-mono font-medium">DeployX402</span>
+            <span className="text-xs font-mono font-medium">AutoX402</span>
             <span className="text-[10px] text-muted-foreground font-mono">/ agent profile</span>
           </div>
           <div className="flex items-center gap-2">

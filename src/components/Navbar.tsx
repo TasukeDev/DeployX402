@@ -33,7 +33,7 @@ const Navbar = () => {
           {/* Logo */}
           <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="flex items-center gap-2 cursor-pointer group">
             <span className="text-primary font-mono text-xs group-hover:text-primary/80 transition-colors">◆</span>
-            <span className="text-sm font-mono font-bold text-foreground tracking-tight">DeployX402</span>
+            <span className="text-sm font-mono font-bold text-foreground tracking-tight">AutoX402</span>
           </button>
 
           {/* Desktop links */}

@@ -21,7 +21,7 @@ const SplashScreen = ({ onComplete }: SplashScreenProps) => {
           className="flex items-center gap-2"
         >
           <span className="text-primary font-mono text-lg">◆</span>
-          <span className="text-xl font-mono font-medium text-foreground">DeployX402</span>
+          <span className="text-xl font-mono font-medium text-foreground">AutoX402</span>
         </motion.div>
 
         <motion.div

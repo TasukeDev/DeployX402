@@ -1,14 +1,14 @@
-# DeployX402
+# AutoX402
 
-[![GitHub](https://img.shields.io/badge/GitHub-TasukeDev%2FDeployX402-181717?style=flat&logo=github)](https://github.com/TasukeDev/DeployX402)
+[![GitHub](https://img.shields.io/badge/GitHub-TasukeDev%2FAutoX402-181717?style=flat&logo=github)](https://github.com/TasukeDev/AutoX402)
 
 **Autonomous AI agent trading on Solana via the x402 protocol.**
 
 Deploy AI-powered trading agents that operate fully on-chain. Each agent has its own wallet, strategy, and risk profile — and executes trades autonomously using Jupiter and Raydium.
 
-## What is DeployX402?
+## What is AutoX402?
 
-DeployX402 lets you spin up autonomous AI trading agents on Solana. Agents analyze markets using DexScreener and PumpFun data, execute trades via Jupiter/Raydium, and operate 24/7 on mainnet. Every trade is verifiable on-chain. Completely free.
+AutoX402 lets you spin up autonomous AI trading agents on Solana. Agents analyze markets using DexScreener and PumpFun data, execute trades via Jupiter/Raydium, and operate 24/7 on mainnet. Every trade is verifiable on-chain. Completely free.
 
 ## Features
 
@@ -29,17 +29,17 @@ DeployX402 lets you spin up autonomous AI trading agents on Solana. Agents analy
 ## Getting Started
 
 ```sh
-git clone https://github.com/YOUR_USERNAME/deployx402
-cd deployx402
+git clone https://github.com/YOUR_USERNAME/autox402
+cd autox402
 npm install
 npm run dev
 ```
 
 ## Links
 
-- Twitter/X: [@DeployX402](https://x.com/DeployX402)
-- GitHub: [TasukeDev/DeployX402](https://github.com/TasukeDev/DeployX402)
+- Twitter/X: [@AutoX402](https://x.com/AutoX402)
+- GitHub: [TasukeDev/AutoX402](https://github.com/TasukeDev/AutoX402)
 
 ---
 
-© 2026 DeployX402. Trading involves risk.
+© 2026 AutoX402. Trading involves risk.
