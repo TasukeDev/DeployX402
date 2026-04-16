@@ -17,7 +17,7 @@ const FooterCTA = () => {
       <div className="relative py-20 px-6">
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden">
           <span className="text-[18vw] font-mono font-bold text-foreground/[0.025] leading-none tracking-tighter whitespace-nowrap">
-            DEPLOYX402
+            AUTOX402
           </span>
         </div>
 
@@ -25,7 +25,7 @@ const FooterCTA = () => {
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-2">
               <span className="text-primary font-mono text-base">◆</span>
-              <span className="text-lg font-mono font-bold text-foreground tracking-tight">DeployX402</span>
+              <span className="text-lg font-mono font-bold text-foreground tracking-tight">AutoX402</span>
             </div>
             <p className="text-xs font-mono text-muted-foreground max-w-xs">
               Autonomous AI trading agents on Solana.<br />Completely free.
@@ -34,16 +34,16 @@ const FooterCTA = () => {
 
           <div className="flex flex-col items-end gap-3">
             <a
-              href="https://x.com/DeployX402"
+              href="https://x.com/AutoX402"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground hover:text-foreground transition-colors"
             >
               <Twitter className="h-3 w-3" />
-              @DeployX402
+              @AutoX402
             </a>
             <p className="text-[10px] font-mono text-muted-foreground/60">
-              © 2026 DeployX402. Trading involves risk.
+              © 2026 AutoX402. Trading involves risk.
             </p>
           </div>
         </div>

@@ -7,14 +7,14 @@ import { useState, useEffect } from "react";
 import { useLiveStats } from "@/hooks/useLiveStats";
 
 const TERMINAL_LINES = [
-  { type: "prompt", text: "$ deployx402 init" },
-  { type: "output", text: "◆ DeployX402 v1.0.0" },
+  { type: "prompt", text: "$ autox402 init" },
+  { type: "output", text: "◆ AutoX402 v1.0.0" },
   { type: "output", text: "  Connecting to Solana mainnet..." },
   { type: "success", text: "  ✓ Connected (slot: 312,847,291)" },
   { type: "output", text: "  Loading trading engines..." },
   { type: "success", text: "  ✓ Jupiter • Raydium • Pump.fun" },
   { type: "output", text: "" },
-  { type: "prompt", text: "$ deployx402 deploy --strategy sniper" },
+  { type: "prompt", text: "$ autox402 deploy --strategy sniper" },
   { type: "success", text: "  ✓ Agent deployed. Watching for launches..." },
 ];
 
@@ -198,7 +198,7 @@ const HeroSection = () => {
                     <div className="h-2.5 w-2.5 rounded-full terminal-dot-yellow" />
                     <div className="h-2.5 w-2.5 rounded-full terminal-dot-green" />
                   </div>
-                  <span className="text-[10px] font-mono text-muted-foreground">erl@deployx402</span>
+                  <span className="text-[10px] font-mono text-muted-foreground">erl@autox402</span>
                 </div>
                 <div className="p-4 min-h-[260px] font-mono text-xs leading-relaxed">
                   {lines.map((line, i) => (

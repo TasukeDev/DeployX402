@@ -571,7 +571,7 @@ const AgentDetail = () => {
             </button>
             <div className="flex items-center gap-2">
               <span className="text-primary font-mono text-[10px]">◆</span>
-              <span className="text-xs font-mono font-medium">DeployX402</span>
+              <span className="text-xs font-mono font-medium">AutoX402</span>
               <span className="text-[10px] text-muted-foreground font-mono">/ agent / {agent.name}</span>
             </div>
           </div>
@@ -706,9 +706,9 @@ const AgentDetail = () => {
                 <button
                   onClick={() => {
                     const pnlText = `${pnlPositive ? "+" : ""}${totalPnl.toFixed(3)} SOL`;
-                    const text = `🤖 My AI trading agent "${agent.name}" on @DeployX402\n\n📈 PnL: ${pnlText}\n🎯 Win Rate: ${winRate.toFixed(0)}% across ${totalTrades} trades\n\nDeploy your own autonomous Solana trading agent 👇`;
+                    const text = `🤖 My AI trading agent "${agent.name}" on @AutoX402\n\n📈 PnL: ${pnlText}\n🎯 Win Rate: ${winRate.toFixed(0)}% across ${totalTrades} trades\n\nDeploy your own autonomous Solana trading agent 👇`;
                     window.open(
-                      `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent("https://github.com/TasukeDev/DeployX402")}`,
+                      `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent("https://github.com/TasukeDev/AutoX402")}`,
                       "_blank", "noopener,noreferrer"
                     );
                   }}

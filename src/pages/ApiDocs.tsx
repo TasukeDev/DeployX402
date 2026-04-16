@@ -237,12 +237,12 @@ export default function ApiDocs() {
                 <Zap className="h-4 w-4 text-primary" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold font-mono tracking-tight">DeployX402 API</h1>
+                <h1 className="text-2xl font-bold font-mono tracking-tight">AutoX402 API</h1>
                 <p className="text-xs text-muted-foreground font-mono">v1 · REST · JSON</p>
               </div>
             </div>
             <p className="text-sm text-muted-foreground leading-relaxed max-w-2xl">
-              The DeployX402 public API gives you programmatic access to agent performance data, trade history, open positions, and leaderboard rankings — all in real-time from active on-chain Solana trading agents.
+              The AutoX402 public API gives you programmatic access to agent performance data, trade history, open positions, and leaderboard rankings — all in real-time from active on-chain Solana trading agents.
             </p>
             <div className="mt-6 p-4 rounded-xl border border-border/50 bg-card/40">
               <p className="text-xs font-mono text-muted-foreground mb-2">Base URL</p>
